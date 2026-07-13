@@ -204,9 +204,36 @@
       color: var(--text-muted); flex-shrink: 0;
     }
     table.table-responsive tbody td.actions-cell { justify-content: flex-end; padding-top: 9px; }
-    table.table-responsive tbody td.book-cover-cell { display: none; }
     table.table-responsive tbody td.empty-state { display: block; }
     table.table-responsive tbody tr.empty-row { border: none; padding: 0; }
+
+    /* Livros: mostra a capa ao lado do título no cartão do celular */
+    #tableLivros.table-responsive tbody tr:not(.empty-row) {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      grid-template-areas:
+        "cover titulo"
+        "cover autor"
+        "estante estante"
+        "status status"
+        "actions actions";
+      column-gap: 12px;
+    }
+    #tableLivros.table-responsive tbody td.book-cover-cell {
+      grid-area: cover; display: block; padding: 7px 0;
+    }
+    #tableLivros.table-responsive .book-cover-thumb,
+    #tableLivros.table-responsive .book-cover-placeholder {
+      width: 52px; height: 72px;
+    }
+    #tableLivros.table-responsive tbody td[data-label="Título"] {
+      grid-area: titulo; display: block; padding: 7px 0 2px 0; font-weight: 600;
+    }
+    #tableLivros.table-responsive tbody td[data-label="Título"]::before { content: none; }
+    #tableLivros.table-responsive tbody td[data-label="Autor(a)"] { grid-area: autor; }
+    #tableLivros.table-responsive tbody td[data-label="Estante"] { grid-area: estante; }
+    #tableLivros.table-responsive tbody td[data-label="Status"] { grid-area: status; }
+    #tableLivros.table-responsive tbody td.actions-cell { grid-area: actions; }
   }
 
   .badge {
