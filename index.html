@@ -339,6 +339,37 @@
     .toast { left: 16px; right: 16px; max-width: none; }
   }
   .table-wrap { -webkit-overflow-scrolling: touch; }
+
+  /* ---------- Estudantes: submenu de turmas ---------- */
+  .estudantes-layout { display: grid; grid-template-columns: 210px 1fr; gap: 16px; align-items: start; }
+  .estudantes-layout > .turma-menu, .estudantes-layout > .estudantes-content { min-width: 0; }
+  .turma-menu {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--card-radius); padding: 8px;
+    display: flex; flex-direction: column; gap: 2px;
+    max-height: 560px; overflow-y: auto;
+  }
+  .turma-menu-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    color: var(--text-secondary); cursor: pointer; border: none; background: none;
+    text-align: left; width: 100%; white-space: nowrap;
+  }
+  .turma-menu-item:hover { background: var(--page-plane); color: var(--text-primary); }
+  .turma-menu-item.active { background: var(--series-1); color: #fff; }
+  .turma-menu-item .count {
+    font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    background: var(--grid); color: var(--text-secondary); flex-shrink: 0;
+  }
+  .turma-menu-item.active .count { background: rgba(255,255,255,0.25); color: #fff; }
+  @media (max-width: 900px) {
+    .estudantes-layout { grid-template-columns: 1fr; }
+    .turma-menu {
+      flex-direction: row; overflow-x: auto; overflow-y: visible;
+      max-height: none; gap: 6px;
+    }
+    .turma-menu-item { flex-shrink: 0; width: auto; }
+  }
   @media (max-width: 900px) {
     /* Evita que o iOS Safari dê zoom automático ao focar campos de formulário */
     input, select { font-size: 16px; }
@@ -429,7 +460,7 @@
     </button>
     <button class="nav-item" data-view="alunos">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Alunos
+      Estudantes
     </button>
     <button class="nav-item" data-view="emprestimos">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57"/><polyline points="21 3 21 9 15 9"/></svg>
@@ -469,7 +500,7 @@
     <div class="topbar">
       <div>
         <h1>Dashboard</h1>
-        <p>Visão geral do acervo, alunos e empréstimos da biblioteca.</p>
+        <p>Visão geral do acervo, estudantes e empréstimos da biblioteca.</p>
       </div>
     </div>
 
@@ -542,28 +573,32 @@
   <section class="view" id="view-alunos">
     <div class="topbar">
       <div>
-        <h1>Alunos</h1>
-        <p><span id="alunosCount">0</span> alunos cadastrados</p>
+        <h1>Estudantes</h1>
+        <p><span id="alunosCount">0</span> estudantes cadastrados</p>
       </div>
       <button class="btn btn-primary" id="btnNovoAluno">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Novo aluno
+        Novo estudante
       </button>
     </div>
 
-    <div class="toolbar">
-      <input class="grow" type="text" id="alunosSearch" placeholder="Buscar por nome ou turma...">
-      <select id="alunosTurmaFilter"><option value="">Todas as turmas</option></select>
-      <select id="alunosTurnoFilter">
-        <option value="">Todos os turnos</option>
-        <option value="Manhã">Manhã</option>
-        <option value="Tarde">Tarde</option>
-      </select>
-    </div>
+    <div class="estudantes-layout">
+      <div class="turma-menu" id="turmaMenu"></div>
+      <div class="estudantes-content">
+        <div class="toolbar">
+          <input class="grow" type="text" id="alunosSearch" placeholder="Buscar por nome...">
+          <select id="alunosTurnoFilter">
+            <option value="">Todos os turnos</option>
+            <option value="Manhã">Manhã</option>
+            <option value="Tarde">Tarde</option>
+          </select>
+        </div>
 
-    <div class="card">
-      <div class="table-wrap"><table id="tableAlunos"></table></div>
-      <div class="pagination" id="paginationAlunos"></div>
+        <div class="card">
+          <div class="table-wrap"><table id="tableAlunos"></table></div>
+          <div class="pagination" id="paginationAlunos"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -587,7 +622,7 @@
         <option value="devolvidos">Devolvidos</option>
         <option value="todos">Todos</option>
       </select>
-      <input class="grow" type="text" id="emprestimosSearch" placeholder="Buscar por livro ou aluno...">
+      <input class="grow" type="text" id="emprestimosSearch" placeholder="Buscar por livro ou estudante...">
     </div>
 
     <div class="card">
@@ -647,7 +682,7 @@
 <!-- ===================== MODAL: ALUNO ===================== -->
 <div class="modal-backdrop" id="modalAluno">
   <div class="modal">
-    <h3 id="modalAlunoTitle">Novo aluno</h3>
+    <h3 id="modalAlunoTitle">Novo estudante</h3>
     <input type="hidden" id="alunoId">
     <div class="field">
       <label>Nome completo</label>
@@ -701,7 +736,7 @@
       <div class="combo-list" id="comboLivros"></div>
     </div>
     <div class="field">
-      <label>Aluno</label>
+      <label>Estudante</label>
       <select id="emprestimoAlunoId"></select>
     </div>
     <div class="field">
@@ -1060,7 +1095,7 @@ function renderDashboard() {
     { label: 'Disponíveis', value: disponiveis, cls: 'good' },
     { label: 'Emprestados', value: emprestados, cls: '' },
     { label: 'Em atraso', value: atrasados, cls: atrasados ? 'critical' : '' },
-    { label: 'Alunos cadastrados', value: totalAlunos, cls: '' },
+    { label: 'Estudantes cadastrados', value: totalAlunos, cls: '' },
     { label: 'Empréstimos ativos', value: ativos, cls: '' },
   ];
   document.getElementById('statGrid').innerHTML = stats.map(s => `
@@ -1100,7 +1135,7 @@ function renderDashboard() {
     tblAtrasados.innerHTML = `<tbody><tr><td class="empty-state">Nenhum empréstimo em atraso. 🎉</td></tr></tbody>`;
   } else {
     tblAtrasados.innerHTML = `
-      <thead><tr><th>Livro</th><th>Aluno</th><th>Dias</th><th></th></tr></thead>
+      <thead><tr><th>Livro</th><th>Estudante</th><th>Dias</th><th></th></tr></thead>
       <tbody>${overdue.slice(0,8).map(l => {
         const b = bookById(l.bookId), u = userById(l.userId);
         const days = daysBetween(l.dataPrevista, todayISO());
@@ -1124,7 +1159,7 @@ function renderDashboard() {
     tblAtividade.innerHTML = `<tbody><tr><td class="empty-state">Nenhuma movimentação registrada ainda.</td></tr></tbody>`;
   } else {
     tblAtividade.innerHTML = `
-      <thead><tr><th>Data</th><th>Tipo</th><th>Livro</th><th>Aluno</th></tr></thead>
+      <thead><tr><th>Data</th><th>Tipo</th><th>Livro</th><th>Estudante</th></tr></thead>
       <tbody>${events.slice(0,8).map(e => {
         const b = bookById(e.bookId), u = userById(e.userId);
         const badge = e.type === 'Empréstimo' ? 'badge-muted' : 'badge-good';
@@ -1247,27 +1282,41 @@ document.getElementById('btnSalvarLivro').addEventListener('click', async () => 
 });
 
 /* ================= RENDER: ALUNOS ================= */
-function populateTurmaFilter() {
-  const sel = document.getElementById('alunosTurmaFilter');
-  const current = sel.value;
+let selectedTurma = '';
+function renderTurmaMenu() {
+  const menu = document.getElementById('turmaMenu');
   const turmas = [...new Set(state.users.map(u => u.turma).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
-  sel.innerHTML = '<option value="">Todas as turmas</option>' + turmas.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
-  if (turmas.includes(current)) sel.value = current;
+  if (selectedTurma && !turmas.includes(selectedTurma)) selectedTurma = '';
+  const items = [{ turma: '', label: 'Todas as turmas', count: state.users.length }]
+    .concat(turmas.map(t => ({ turma: t, label: t, count: state.users.filter(u => u.turma === t).length })));
+  menu.innerHTML = items.map(it => `
+    <button type="button" class="turma-menu-item ${it.turma === selectedTurma ? 'active' : ''}" data-turma="${escapeHtml(it.turma)}">
+      <span>${escapeHtml(it.label)}</span>
+      <span class="count">${it.count}</span>
+    </button>`).join('');
 }
+document.getElementById('turmaMenu').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.turma-menu-item');
+  if (!btn) return;
+  selectedTurma = btn.dataset.turma;
+  alunosPage = 1;
+  renderAlunos();
+});
 function filteredUsers() {
   const q = document.getElementById('alunosSearch').value.trim().toLowerCase();
-  const turma = document.getElementById('alunosTurmaFilter').value;
   const turno = document.getElementById('alunosTurnoFilter').value;
-  return state.users.filter(u => {
-    if (q && !(u.nome.toLowerCase().includes(q) || (u.turma||'').toLowerCase().includes(q))) return false;
-    if (turma && u.turma !== turma) return false;
-    if (turno && u.turno !== turno) return false;
-    return true;
-  });
+  return state.users
+    .filter(u => {
+      if (q && !u.nome.toLowerCase().includes(q)) return false;
+      if (selectedTurma && u.turma !== selectedTurma) return false;
+      if (turno && u.turno !== turno) return false;
+      return true;
+    })
+    .sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 function renderAlunos() {
   document.getElementById('alunosCount').textContent = state.users.length;
-  populateTurmaFilter();
+  renderTurmaMenu();
   const all = filteredUsers();
   const totalPages = Math.max(1, Math.ceil(all.length / ALUNOS_PAGE_SIZE));
   if (alunosPage > totalPages) alunosPage = totalPages;
@@ -1275,7 +1324,7 @@ function renderAlunos() {
   const list = all.slice(start, start + ALUNOS_PAGE_SIZE);
   const tbl = document.getElementById('tableAlunos');
   if (!list.length) {
-    tbl.innerHTML = `<tbody><tr><td class="empty-state">Nenhum aluno encontrado. Clique em "Novo aluno" para cadastrar.</td></tr></tbody>`;
+    tbl.innerHTML = `<tbody><tr><td class="empty-state">Nenhum estudante encontrado. Clique em "Novo estudante" para cadastrar.</td></tr></tbody>`;
   } else {
     tbl.innerHTML = `
       <thead><tr><th>Nome</th><th>Turma</th><th>Turno</th><th>Ensino</th><th>AEE</th><th>Contato</th><th>Empréstimos ativos</th><th></th></tr></thead>
@@ -1303,14 +1352,14 @@ function renderAlunos() {
     </div>`;
 }
 function changeAlunosPage(delta) { alunosPage += delta; renderAlunos(); }
-['alunosSearch','alunosTurmaFilter','alunosTurnoFilter'].forEach(id => {
+['alunosSearch','alunosTurnoFilter'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => { alunosPage = 1; renderAlunos(); });
 });
 
 function editUser(id) {
   const u = userById(id);
   if (!u) return;
-  document.getElementById('modalAlunoTitle').textContent = 'Editar aluno';
+  document.getElementById('modalAlunoTitle').textContent = 'Editar estudante';
   document.getElementById('alunoId').value = u.id;
   document.getElementById('alunoNome').value = u.nome;
   document.getElementById('alunoTurma').value = u.turma;
@@ -1324,21 +1373,21 @@ function deleteUser(id) {
   const u = userById(id);
   if (!u) return;
   if (activeLoansCountForUser(id) > 0) {
-    showToast('Este aluno tem empréstimos ativos. Registre as devoluções antes de excluir.');
+    showToast('Este estudante tem empréstimos ativos. Registre as devoluções antes de excluir.');
     return;
   }
-  askConfirm('Excluir aluno', `Tem certeza que deseja excluir "${u.nome}"?`, async () => {
+  askConfirm('Excluir estudante', `Tem certeza que deseja excluir "${u.nome}"?`, async () => {
     setLoading(true);
     const { error } = await sb.from('students').delete().eq('id', id);
     if (error) { setLoading(false); showToast(friendlyError(error)); return; }
-    showToast('Aluno excluído.');
+    showToast('Estudante excluído.');
     await loadUsers();
     renderAll();
     setLoading(false);
   });
 }
 document.getElementById('btnNovoAluno').addEventListener('click', () => {
-  document.getElementById('modalAlunoTitle').textContent = 'Novo aluno';
+  document.getElementById('modalAlunoTitle').textContent = 'Novo estudante';
   document.getElementById('alunoId').value = '';
   document.getElementById('alunoNome').value = '';
   document.getElementById('alunoTurma').value = '';
@@ -1355,7 +1404,7 @@ document.getElementById('btnSalvarAluno').addEventListener('click', async () => 
   const ensino = document.getElementById('alunoEnsino').value;
   const aee = document.getElementById('alunoAee').value === 'sim';
   const contato = document.getElementById('alunoContato').value.trim();
-  if (!nome) { showToast('Informe o nome do aluno.'); return; }
+  if (!nome) { showToast('Informe o nome do estudante.'); return; }
   const id = document.getElementById('alunoId').value;
   setLoading(true);
   let error;
@@ -1365,7 +1414,7 @@ document.getElementById('btnSalvarAluno').addEventListener('click', async () => 
     ({ error } = await sb.from('students').insert({ nome, turma, turno, ensino, aee, contato, ativo: true }));
   }
   if (error) { setLoading(false); showToast(friendlyError(error)); return; }
-  showToast(id ? 'Aluno atualizado.' : 'Aluno cadastrado.');
+  showToast(id ? 'Estudante atualizado.' : 'Estudante cadastrado.');
   closeModal('modalAluno');
   await loadUsers();
   renderAll();
@@ -1397,7 +1446,7 @@ function renderEmprestimos() {
     return;
   }
   tbl.innerHTML = `
-    <thead><tr><th>Livro</th><th>Aluno</th><th>Empréstimo</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Livro</th><th>Estudante</th><th>Empréstimo</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
     <tbody>${list.map(l => {
       const b = bookById(l.bookId), u = userById(l.userId);
       const status = loanStatus(l);
@@ -1407,7 +1456,7 @@ function renderEmprestimos() {
       else badge = `<span class="badge badge-muted">Ativo</span>`;
       return `<tr>
         <td>${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
-        <td>${escapeHtml(u ? u.nome : 'Aluno removido')}</td>
+        <td>${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
         <td>${fmtDate(l.dataEmprestimo)}</td>
         <td>${fmtDate(l.dataPrevista)}</td>
         <td>${badge}</td>
@@ -1435,7 +1484,7 @@ async function returnLoan(id) {
 /* --- new loan modal --- */
 let selectedLoanBookId = null;
 document.getElementById('btnNovoEmprestimo').addEventListener('click', () => {
-  if (!state.users.length) { showToast('Cadastre ao menos um aluno antes de registrar um empréstimo.'); return; }
+  if (!state.users.length) { showToast('Cadastre ao menos um estudante antes de registrar um empréstimo.'); return; }
   if (!state.books.some(b => b.status === 'disponivel')) { showToast('Não há livros disponíveis no momento.'); return; }
   selectedLoanBookId = null;
   document.getElementById('emprestimoLivroSearch').value = '';
@@ -1495,7 +1544,7 @@ document.getElementById('btnSalvarEmprestimo').addEventListener('click', async (
   const data = document.getElementById('emprestimoData').value || todayISO();
   const prazo = Number(document.getElementById('emprestimoPrazo').value || 14);
   if (!bookId) { showToast('Selecione um livro disponível na lista.'); return; }
-  if (!userId) { showToast('Selecione um aluno.'); return; }
+  if (!userId) { showToast('Selecione um estudante.'); return; }
   const b = bookById(bookId);
   if (!b || b.status !== 'disponivel') { showToast('Este livro não está mais disponível.'); return; }
   setLoading(true);
