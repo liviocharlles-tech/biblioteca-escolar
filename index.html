@@ -176,6 +176,32 @@
   .table-wrap { overflow-x: auto; }
   .empty-state { padding: 30px 10px; text-align:center; color: var(--text-muted); font-size: 13px; }
 
+  /* ---------- Tabelas em cards no celular (Livros / Empréstimos / Administração) ---------- */
+  @media (max-width: 640px) {
+    table.table-responsive thead { display: none; }
+    table.table-responsive, table.table-responsive tbody, table.table-responsive tr, table.table-responsive td {
+      display: block; width: 100%;
+    }
+    table.table-responsive tbody tr {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 4px 12px; margin-bottom: 10px;
+    }
+    table.table-responsive tbody tr:last-child { margin-bottom: 0; }
+    table.table-responsive tbody td {
+      border-bottom: none; padding: 7px 0;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    table.table-responsive tbody td[data-label]::before {
+      content: attr(data-label);
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+      color: var(--text-muted); flex-shrink: 0;
+    }
+    table.table-responsive tbody td.actions-cell { justify-content: flex-end; padding-top: 9px; }
+    table.table-responsive tbody td.book-cover-cell { display: none; }
+    table.table-responsive tbody td.empty-state { display: block; }
+    table.table-responsive tbody tr.empty-row { border: none; padding: 0; }
+  }
+
   .badge {
     display: inline-flex; align-items:center; gap:5px;
     padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
@@ -302,7 +328,7 @@
   .login-error { background: rgba(208,59,59,0.12); color: var(--status-critical); }
   .login-info { background: rgba(42,120,214,0.12); color: var(--series-1); }
   .login-error.show, .login-info.show { display:block; }
-  #appRoot { display: flex; min-height: 100vh; }
+  #appRoot { display: flex; min-height: 100vh; min-width: 0; width: 100%; }
   #appRoot.hidden { display: none; }
   .logged-in-as { font-size: 11.5px; color: var(--text-muted); padding: 0 4px; word-break: break-all; }
   .loading-overlay {
@@ -504,6 +530,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57"/><polyline points="21 3 21 9 15 9"/></svg>
       Empréstimos
     </button>
+    <button class="nav-item" data-view="relatorios">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Relatórios
+    </button>
     <button class="nav-item" data-view="admin" id="navAdmin" style="display:none;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Administração
@@ -602,7 +632,7 @@
     </div>
 
     <div class="card">
-      <div class="table-wrap"><table id="tableLivros"></table></div>
+      <div class="table-wrap"><table id="tableLivros" class="table-responsive"></table></div>
       <div class="pagination" id="paginationLivros"></div>
     </div>
   </section>
@@ -664,7 +694,38 @@
     </div>
 
     <div class="card">
-      <div class="table-wrap"><table id="tableEmprestimos"></table></div>
+      <div class="table-wrap"><table id="tableEmprestimos" class="table-responsive"></table></div>
+    </div>
+  </section>
+
+  <!-- ===================== RELATORIOS ===================== -->
+  <section class="view" id="view-relatorios">
+    <div class="topbar">
+      <div>
+        <h1>Relatórios</h1>
+        <p>Indicadores gerais do acervo, dos estudantes e dos empréstimos</p>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="statGridRelatorios"></div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3>Tempo restante dos empréstimos ativos</h3>
+      <p class="sub">Empréstimos ainda não devolvidos, ordenados do mais urgente para o mais tranquilo</p>
+      <div class="table-wrap"><table id="tableRelatorioPrazos" class="table-responsive"></table></div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h3>Estudantes com mais empréstimos</h3>
+        <p class="sub">Ranking por empréstimos ativos no momento</p>
+        <div class="table-wrap"><table id="tableRelatorioEstudantes" class="table-responsive"></table></div>
+      </div>
+      <div class="card">
+        <h3>Empréstimos ativos por turma</h3>
+        <p class="sub">Em quais turmas os livros emprestados estão concentrados</p>
+        <div id="chartRelatorioTurma"></div>
+      </div>
     </div>
   </section>
 
@@ -682,7 +743,7 @@
     </div>
 
     <div class="card">
-      <div class="table-wrap"><table id="tableContas"></table></div>
+      <div class="table-wrap"><table id="tableContas" class="table-responsive"></table></div>
     </div>
   </section>
 
@@ -1219,6 +1280,112 @@ function renderDashboard() {
   }
 }
 
+/* ================= RENDER: RELATORIOS ================= */
+function renderRelatorios() {
+  const totalLivros = state.books.length;
+  const emprestados = state.books.filter(b => b.status === 'emprestado').length;
+  const disponiveis = totalLivros - emprestados;
+  const totalEstudantes = state.users.length;
+  const emprestimosAtivos = state.loans.filter(l => !l.dataDevolucao);
+  const atrasados = emprestimosAtivos.filter(l => loanStatus(l) === 'atrasado').length;
+
+  const devolvidos = state.loans.filter(l => l.dataDevolucao);
+  const duracaoMedia = devolvidos.length
+    ? Math.round(devolvidos.reduce((sum, l) => sum + daysBetween(l.dataEmprestimo, l.dataDevolucao), 0) / devolvidos.length)
+    : null;
+
+  const mesAtual = todayISO().slice(0, 7);
+  const emprestimosEsteMes = state.loans.filter(l => l.dataEmprestimo.slice(0, 7) === mesAtual).length;
+
+  const stats = [
+    { label: 'Estudantes cadastrados', value: totalEstudantes, cls: '' },
+    { label: 'Livros emprestados agora', value: emprestados, cls: '' },
+    { label: 'Livros disponíveis', value: disponiveis, cls: 'good' },
+    { label: 'Empréstimos em atraso', value: atrasados, cls: atrasados ? 'critical' : '' },
+    { label: 'Empréstimos neste mês', value: emprestimosEsteMes, cls: '' },
+    { label: 'Duração média (dias)', value: duracaoMedia === null ? '—' : duracaoMedia, cls: '' },
+  ];
+  document.getElementById('statGridRelatorios').innerHTML = stats.map(s => `
+    <div class="stat-tile">
+      <div class="label">${s.label}</div>
+      <div class="value ${s.cls}">${s.value}</div>
+    </div>`).join('');
+
+  /* --- tempo restante dos empréstimos ativos --- */
+  const prazos = emprestimosAtivos
+    .map(l => ({ loan: l, dias: daysBetween(todayISO(), l.dataPrevista) }))
+    .sort((a, b) => a.dias - b.dias);
+
+  const tblPrazos = document.getElementById('tableRelatorioPrazos');
+  if (!prazos.length) {
+    tblPrazos.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum empréstimo ativo no momento.</td></tr></tbody>`;
+  } else {
+    tblPrazos.innerHTML = `
+      <thead><tr><th>Livro</th><th>Estudante</th><th>Previsão</th><th>Tempo restante</th></tr></thead>
+      <tbody>${prazos.map(({ loan, dias }) => {
+        const b = bookById(loan.bookId), u = userById(loan.userId);
+        let tempoBadge;
+        if (dias < 0) tempoBadge = `<span class="badge badge-critical">Atrasado há ${Math.abs(dias)} dia${Math.abs(dias) === 1 ? '' : 's'}</span>`;
+        else if (dias === 0) tempoBadge = `<span class="badge badge-warning">Vence hoje</span>`;
+        else tempoBadge = `<span class="badge ${dias <= 2 ? 'badge-warning' : 'badge-muted'}">${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}</span>`;
+        return `<tr>
+          <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
+          <td data-label="Estudante">${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
+          <td data-label="Previsão">${fmtDate(loan.dataPrevista)}</td>
+          <td data-label="Tempo restante">${tempoBadge}</td>
+        </tr>`;
+      }).join('')}</tbody>`;
+  }
+
+  /* --- estudantes com mais empréstimos --- */
+  const porEstudante = state.users
+    .map(u => ({
+      user: u,
+      ativos: state.loans.filter(l => l.userId === u.id && !l.dataDevolucao).length,
+      total: state.loans.filter(l => l.userId === u.id).length,
+    }))
+    .filter(x => x.total > 0)
+    .sort((a, b) => b.ativos - a.ativos || b.total - a.total)
+    .slice(0, 8);
+
+  const tblEstudantes = document.getElementById('tableRelatorioEstudantes');
+  if (!porEstudante.length) {
+    tblEstudantes.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum empréstimo registrado ainda.</td></tr></tbody>`;
+  } else {
+    tblEstudantes.innerHTML = `
+      <thead><tr><th>Estudante</th><th>Turma</th><th>Ativos</th><th>Total</th></tr></thead>
+      <tbody>${porEstudante.map(x => `
+        <tr>
+          <td data-label="Estudante">${escapeHtml(x.user.nome)}</td>
+          <td data-label="Turma">${escapeHtml(x.user.turma || '—')}</td>
+          <td data-label="Ativos">${x.ativos}</td>
+          <td data-label="Total">${x.total}</td>
+        </tr>`).join('')}</tbody>`;
+  }
+
+  /* --- empréstimos ativos por turma --- */
+  const turmaColors = ['var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)', 'var(--series-5)', 'var(--series-6)'];
+  const contagemPorTurma = {};
+  emprestimosAtivos.forEach(l => {
+    const u = userById(l.userId);
+    const turma = (u && u.turma) || 'Sem turma';
+    contagemPorTurma[turma] = (contagemPorTurma[turma] || 0) + 1;
+  });
+  const turmas = Object.keys(contagemPorTurma).sort((a, b) => contagemPorTurma[b] - contagemPorTurma[a]);
+  const chartTurma = document.getElementById('chartRelatorioTurma');
+  if (!turmas.length) {
+    chartTurma.innerHTML = `<div class="empty-state">Nenhum empréstimo ativo no momento.</div>`;
+  } else {
+    const maxTurma = Math.max(1, ...turmas.map(t => contagemPorTurma[t]));
+    chartTurma.innerHTML = turmas.map((t, i) => `
+      <div class="bar-row">
+        <div class="bar-label">${escapeHtml(t)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(contagemPorTurma[t] / maxTurma * 100).toFixed(1)}%; background:${turmaColors[i % turmaColors.length]}"></div></div>
+        <div class="bar-value">${contagemPorTurma[t]}</div>
+      </div>`).join('');
+  }
+}
+
 /* ================= RENDER: LIVROS ================= */
 const BOOK_COVER_PLACEHOLDER_HTML = `<div class="book-cover-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>`;
 function handleCoverError(img) { img.outerHTML = BOOK_COVER_PLACEHOLDER_HTML; }
@@ -1248,17 +1415,17 @@ function renderLivros() {
 
   const tbl = document.getElementById('tableLivros');
   if (!pageItems.length) {
-    tbl.innerHTML = `<tbody><tr><td class="empty-state">Nenhum livro encontrado com esses filtros.</td></tr></tbody>`;
+    tbl.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum livro encontrado com esses filtros.</td></tr></tbody>`;
   } else {
     tbl.innerHTML = `
       <thead><tr><th></th><th>Título</th><th>Autor(a)</th><th>Estante</th><th>Status</th><th></th></tr></thead>
       <tbody>${pageItems.map(b => `
         <tr>
           <td class="book-cover-cell">${bookCoverCellHtml(b)}</td>
-          <td>${escapeHtml(b.titulo)}</td>
-          <td>${escapeHtml(b.autor)}</td>
-          <td>Estante ${b.estante}</td>
-          <td>${b.status === 'disponivel' ? '<span class="badge badge-good">Disponível</span>' : '<span class="badge badge-warning">Emprestado</span>'}</td>
+          <td data-label="Título">${escapeHtml(b.titulo)}</td>
+          <td data-label="Autor(a)">${escapeHtml(b.autor)}</td>
+          <td data-label="Estante">${b.estante}</td>
+          <td data-label="Status">${b.status === 'disponivel' ? '<span class="badge badge-good">Disponível</span>' : '<span class="badge badge-warning">Emprestado</span>'}</td>
           <td class="actions-cell">
             <button class="btn btn-sm" onclick="editBook(${b.id})">Editar</button>
             <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.id})">Excluir</button>
@@ -1513,7 +1680,7 @@ function renderEmprestimos() {
   const list = filteredLoans();
   const tbl = document.getElementById('tableEmprestimos');
   if (!list.length) {
-    tbl.innerHTML = `<tbody><tr><td class="empty-state">Nenhum empréstimo encontrado.</td></tr></tbody>`;
+    tbl.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum empréstimo encontrado.</td></tr></tbody>`;
     return;
   }
   tbl.innerHTML = `
@@ -1526,11 +1693,11 @@ function renderEmprestimos() {
       else if (status === 'atrasado') badge = `<span class="badge badge-critical">Atrasado (${daysBetween(l.dataPrevista, todayISO())}d)</span>`;
       else badge = `<span class="badge badge-muted">Ativo</span>`;
       return `<tr>
-        <td>${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
-        <td>${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
-        <td>${fmtDate(l.dataEmprestimo)}</td>
-        <td>${fmtDate(l.dataPrevista)}</td>
-        <td>${badge}</td>
+        <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
+        <td data-label="Estudante">${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
+        <td data-label="Empréstimo">${fmtDate(l.dataEmprestimo)}</td>
+        <td data-label="Previsão">${fmtDate(l.dataPrevista)}</td>
+        <td data-label="Status">${badge}</td>
         <td class="actions-cell">${status !== 'devolvido' ? `<button class="btn btn-sm" onclick="returnLoan(${l.id})">Devolver</button>` : ''}</td>
       </tr>`;
     }).join('')}</tbody>`;
@@ -1665,10 +1832,10 @@ function renderContas() {
     <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th></th></tr></thead>
     <tbody>${list.map(a => `
       <tr>
-        <td>${escapeHtml(a.nome)}</td>
-        <td>${escapeHtml(a.email || '—')}</td>
-        <td>${a.role === 'admin' ? '<span class="badge badge-muted">Administrador</span>' : '<span class="badge badge-muted">Padrão</span>'}</td>
-        <td>${a.ativo ? '<span class="badge badge-good">Ativo</span>' : '<span class="badge badge-critical">Bloqueado</span>'}</td>
+        <td data-label="Nome">${escapeHtml(a.nome)}</td>
+        <td data-label="E-mail">${escapeHtml(a.email || '—')}</td>
+        <td data-label="Papel">${a.role === 'admin' ? '<span class="badge badge-muted">Administrador</span>' : '<span class="badge badge-muted">Padrão</span>'}</td>
+        <td data-label="Status">${a.ativo ? '<span class="badge badge-good">Ativo</span>' : '<span class="badge badge-critical">Bloqueado</span>'}</td>
         <td class="actions-cell">
           <button class="btn btn-sm" onclick="editConta('${a.id}')">Editar</button>
           <button class="btn btn-sm btn-danger" onclick="deleteConta('${a.id}')">Excluir</button>
@@ -1766,6 +1933,7 @@ function renderAll() {
   renderLivros();
   renderAlunos();
   renderEmprestimos();
+  renderRelatorios();
   renderContas();
 }
 
