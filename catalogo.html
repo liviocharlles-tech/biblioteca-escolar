@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo da Biblioteca</title>
+<style>
+  :root {
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;
+    --good-text:      #006300;
+    --status-critical: #d03b3b;
+    --card-radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --good-text:      #0ca30c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 18px 16px 60px 16px; }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 6px 0 18px 0;
+  }
+  .brand-icon {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    background: var(--series-1); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header p { font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 0 0; }
+
+  .toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+  input[type="text"], select {
+    font-family: inherit; font-size: 15px; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; outline: none; width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--series-1); }
+  .btn-refresh {
+    flex-shrink: 0; width: 42px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .btn-refresh svg { width: 18px; height: 18px; }
+  .btn-refresh.spinning svg { animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .summary { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px; }
+  .summary strong { color: var(--text-primary); }
+
+  .book-card {
+    display: flex; gap: 12px; align-items: center;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--card-radius); padding: 10px 12px; margin-bottom: 8px;
+  }
+  .book-cover, .book-cover-placeholder {
+    width: 42px; height: 58px; border-radius: 5px; flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .book-cover { object-fit: cover; background: var(--grid); }
+  .book-cover-placeholder {
+    background: var(--grid); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .book-cover-placeholder svg { width: 17px; height: 17px; }
+  .book-info { flex: 1; min-width: 0; }
+  .book-info .titulo { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .book-info .autor { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+  .book-info .estante-tag { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .badge {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-good { background: rgba(12,163,12,0.12); color: var(--good-text); }
+  .badge-out { background: rgba(208,59,59,0.12); color: var(--status-critical); }
+
+  .empty-state, .loading-state, .error-state {
+    text-align: center; padding: 50px 10px; color: var(--text-muted); font-size: 13.5px;
+  }
+  .error-state { color: var(--status-critical); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
+    <div>
+      <h1 id="pageTitle">Catálogo da Biblioteca</h1>
+      <p id="pageSub">Consulte os livros e a disponibilidade</p>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="Buscar por título ou autor...">
+    <button class="btn-refresh" id="btnRefresh" aria-label="Atualizar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57"/><polyline points="21 3 21 9 15 9"/></svg>
+    </button>
+  </div>
+
+  <div class="summary" id="summary"></div>
+  <div id="results"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://wzfstallegpihgihiefg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6ZnN0YWxsZWdwaWhnaWhpZWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4MzA5ODEsImV4cCI6MjA5OTQwNjk4MX0.f8PtM_j1nK-K_h2ccTfeV81SObG1Df9UVbm23nrAMmI';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(window.location.search);
+const estante = params.get('estante');
+
+let allBooks = [];
+
+const BOOK_COVER_PLACEHOLDER_HTML = `<div class="book-cover-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>`;
+function handleCoverError(img) { img.outerHTML = BOOK_COVER_PLACEHOLDER_HTML; }
+function escapeHtml(s) {
+  return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+}
+
+if (estante) {
+  document.getElementById('pageTitle').textContent = 'Estante ' + estante;
+  document.getElementById('pageSub').textContent = 'Livros disponíveis nesta estante';
+} else {
+  document.getElementById('pageSub').textContent = 'Acervo completo da biblioteca';
+}
+
+async function loadBooks() {
+  const results = document.getElementById('results');
+  const summary = document.getElementById('summary');
+  const btn = document.getElementById('btnRefresh');
+  btn.classList.add('spinning');
+  results.innerHTML = '<div class="loading-state">Carregando…</div>';
+  summary.textContent = '';
+
+  let query = sb.from('books').select('titulo, autor, estante, status, capa_url').order('titulo');
+  if (estante) query = query.eq('estante', Number(estante));
+
+  const { data, error } = await query;
+  btn.classList.remove('spinning');
+
+  if (error) {
+    results.innerHTML = `<div class="error-state">Não foi possível carregar o catálogo agora. Verifique sua internet e tente novamente.</div>`;
+    return;
+  }
+  allBooks = data || [];
+  render();
+}
+
+function render() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const list = allBooks.filter(b =>
+    !q || b.titulo.toLowerCase().includes(q) || (b.autor || '').toLowerCase().includes(q)
+  );
+  const disponiveis = list.filter(b => b.status === 'disponivel').length;
+
+  document.getElementById('summary').innerHTML =
+    `<strong>${list.length}</strong> livro${list.length === 1 ? '' : 's'} · <strong>${disponiveis}</strong> ${disponiveis === 1 ? 'disponível' : 'disponíveis'} para empréstimo`;
+
+  const results = document.getElementById('results');
+  if (!list.length) {
+    results.innerHTML = `<div class="empty-state">Nenhum livro encontrado.</div>`;
+    return;
+  }
+  results.innerHTML = list.map(b => `
+    <div class="book-card">
+      ${b.capa_url
+        ? `<img src="${escapeHtml(b.capa_url)}" class="book-cover" alt="" onerror="handleCoverError(this)">`
+        : BOOK_COVER_PLACEHOLDER_HTML}
+      <div class="book-info">
+        <div class="titulo">${escapeHtml(b.titulo)}</div>
+        <div class="autor">${escapeHtml(b.autor)}</div>
+        ${!estante ? `<div class="estante-tag">Estante ${b.estante}</div>` : ''}
+      </div>
+      ${b.status === 'disponivel'
+        ? '<span class="badge badge-good">Disponível</span>'
+        : '<span class="badge badge-out">Emprestado</span>'}
+    </div>`).join('');
+}
+
+document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('btnRefresh').addEventListener('click', loadBooks);
+loadBooks();
+</script>
+</body>
+</html>
