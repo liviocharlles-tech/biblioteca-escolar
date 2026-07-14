@@ -168,7 +168,7 @@ async function loadBooks() {
   results.innerHTML = '<div class="loading-state">Carregando…</div>';
   summary.textContent = '';
 
-  let query = sb.from('books').select('titulo, autor, estante, status, capa_url').order('titulo');
+  let query = sb.from('books').select('titulo, autor, estante, status, capa_url, quantidade, quantidade_emprestada').order('titulo');
   if (estante) query = query.eq('estante', Number(estante));
 
   const { data, error } = await query;
@@ -182,12 +182,18 @@ async function loadBooks() {
   render();
 }
 
+function bookDisponiveis(b) {
+  const quantidade = b.quantidade ?? 1;
+  const emprestada = b.quantidade_emprestada ?? (b.status === 'emprestado' ? 1 : 0);
+  return Math.max(0, quantidade - emprestada);
+}
+
 function render() {
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
   const list = allBooks.filter(b =>
     !q || b.titulo.toLowerCase().includes(q) || (b.autor || '').toLowerCase().includes(q)
   );
-  const disponiveis = list.filter(b => b.status === 'disponivel').length;
+  const disponiveis = list.filter(b => bookDisponiveis(b) > 0).length;
 
   document.getElementById('summary').innerHTML =
     `<strong>${list.length}</strong> livro${list.length === 1 ? '' : 's'} · <strong>${disponiveis}</strong> ${disponiveis === 1 ? 'disponível' : 'disponíveis'} para empréstimo`;
@@ -197,7 +203,20 @@ function render() {
     results.innerHTML = `<div class="empty-state">Nenhum livro encontrado.</div>`;
     return;
   }
-  results.innerHTML = list.map(b => `
+  results.innerHTML = list.map(b => {
+    const quantidade = b.quantidade ?? 1;
+    const disp = bookDisponiveis(b);
+    let badge;
+    if (quantidade > 1) {
+      badge = disp > 0
+        ? `<span class="badge badge-good">${disp} de ${quantidade} disponíveis</span>`
+        : `<span class="badge badge-out">0 de ${quantidade} disponíveis</span>`;
+    } else {
+      badge = disp > 0
+        ? '<span class="badge badge-good">Disponível</span>'
+        : '<span class="badge badge-out">Emprestado</span>';
+    }
+    return `
     <div class="book-card">
       ${b.capa_url
         ? `<img src="${escapeHtml(b.capa_url)}" class="book-cover" alt="" onerror="handleCoverError(this)">`
@@ -207,10 +226,9 @@ function render() {
         <div class="autor">${escapeHtml(b.autor)}</div>
         ${!estante ? `<div class="estante-tag">Estante ${b.estante}</div>` : ''}
       </div>
-      ${b.status === 'disponivel'
-        ? '<span class="badge badge-good">Disponível</span>'
-        : '<span class="badge badge-out">Emprestado</span>'}
-    </div>`).join('');
+      ${badge}
+    </div>`;
+  }).join('');
 }
 
 document.getElementById('searchInput').addEventListener('input', render);

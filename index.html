@@ -215,6 +215,7 @@
         "cover titulo"
         "cover autor"
         "estante estante"
+        "quantidade quantidade"
         "status status"
         "actions actions";
       column-gap: 12px;
@@ -232,6 +233,7 @@
     #tableLivros.table-responsive tbody td[data-label="Título"]::before { content: none; }
     #tableLivros.table-responsive tbody td[data-label="Autor(a)"] { grid-area: autor; }
     #tableLivros.table-responsive tbody td[data-label="Estante"] { grid-area: estante; }
+    #tableLivros.table-responsive tbody td[data-label="Quantidade"] { grid-area: quantidade; }
     #tableLivros.table-responsive tbody td[data-label="Status"] { grid-area: status; }
     #tableLivros.table-responsive tbody td.actions-cell { grid-area: actions; }
   }
@@ -806,6 +808,11 @@
       </select>
     </div>
     <div class="field">
+      <label>Quantidade de cópias</label>
+      <input type="number" id="livroQuantidade" min="1" step="1" value="1">
+      <div class="field-hint" id="livroQuantidadeHint"></div>
+    </div>
+    <div class="field">
       <label>URL da capa (opcional)</label>
       <input type="url" id="livroCapaUrl" placeholder="Cole aqui o link de uma imagem da capa">
       <div class="field-hint">Dica: procure o livro no Google Imagens, clique com o botão direito na capa e escolha "Copiar endereço da imagem".</div>
@@ -1031,6 +1038,19 @@ function loanStatus(loan) {
 }
 function userById(id) { return state.users.find(u => u.id === id); }
 function bookById(id) { return state.books.find(b => b.id === id); }
+function bookDisponiveis(b) { return Math.max(0, (b.quantidade ?? 1) - (b.quantidadeEmprestada ?? 0)); }
+function bookAvailabilityBadgeHtml(b) {
+  const disponiveis = bookDisponiveis(b);
+  const total = b.quantidade ?? 1;
+  if (total <= 1) {
+    return disponiveis > 0
+      ? '<span class="badge badge-good">Disponível</span>'
+      : '<span class="badge badge-warning">Emprestado</span>';
+  }
+  if (disponiveis === 0) return `<span class="badge badge-warning">0 de ${total} disponíveis</span>`;
+  if (disponiveis === total) return `<span class="badge badge-good">${disponiveis} de ${total} disponíveis</span>`;
+  return `<span class="badge badge-muted">${disponiveis} de ${total} disponíveis</span>`;
+}
 function activeLoansCountForUser(userId) {
   return state.loans.filter(l => l.userId === userId && !l.dataDevolucao).length;
 }
@@ -1039,7 +1059,10 @@ function activeLoansCountForUser(userId) {
 async function loadBooks() {
   const { data, error } = await sb.from('books').select('*').order('id');
   if (error) { showToast(friendlyError(error)); return; }
-  state.books = (data || []).map(r => ({ id: r.id, titulo: r.titulo, autor: r.autor, estante: r.estante, status: r.status, capaUrl: r.capa_url }));
+  state.books = (data || []).map(r => ({
+    id: r.id, titulo: r.titulo, autor: r.autor, estante: r.estante, status: r.status, capaUrl: r.capa_url,
+    quantidade: r.quantidade ?? 1, quantidadeEmprestada: r.quantidade_emprestada ?? 0,
+  }));
 }
 async function loadUsers() {
   const { data, error } = await sb.from('students').select('*').order('id');
@@ -1224,15 +1247,16 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
 
 /* ================= RENDER: DASHBOARD ================= */
 function renderDashboard() {
-  const totalLivros = state.books.length;
-  const emprestados = state.books.filter(b => b.status === 'emprestado').length;
+  const totalTitulos = state.books.length;
+  const totalLivros = state.books.reduce((sum, b) => sum + (b.quantidade ?? 1), 0);
+  const emprestados = state.books.reduce((sum, b) => sum + (b.quantidadeEmprestada ?? 0), 0);
   const disponiveis = totalLivros - emprestados;
   const atrasados = state.loans.filter(l => loanStatus(l) === 'atrasado').length;
   const totalAlunos = state.users.length;
   const ativos = state.loans.filter(l => !l.dataDevolucao).length;
 
   const stats = [
-    { label: 'Total de livros', value: totalLivros, cls: '' },
+    { label: 'Total de livros (cópias)', value: totalLivros, cls: '' },
     { label: 'Disponíveis', value: disponiveis, cls: 'good' },
     { label: 'Emprestados', value: emprestados, cls: '' },
     { label: 'Em atraso', value: atrasados, cls: atrasados ? 'critical' : '' },
@@ -1245,7 +1269,7 @@ function renderDashboard() {
       <div class="value ${s.cls}">${s.value}</div>
     </div>`).join('');
 
-  const byShelf = [1,2,3,4].map(n => state.books.filter(b => b.estante === n).length);
+  const byShelf = [1,2,3,4].map(n => state.books.filter(b => b.estante === n).reduce((sum, b) => sum + (b.quantidade ?? 1), 0));
   const maxShelf = Math.max(1, ...byShelf);
   document.getElementById('chartEstantes').innerHTML = byShelf.map((count, i) => `
     <div class="bar-row">
@@ -1316,8 +1340,8 @@ function renderDashboard() {
 
 /* ================= RENDER: RELATORIOS ================= */
 function renderRelatorios() {
-  const totalLivros = state.books.length;
-  const emprestados = state.books.filter(b => b.status === 'emprestado').length;
+  const totalLivros = state.books.reduce((sum, b) => sum + (b.quantidade ?? 1), 0);
+  const emprestados = state.books.reduce((sum, b) => sum + (b.quantidadeEmprestada ?? 0), 0);
   const disponiveis = totalLivros - emprestados;
   const totalEstudantes = state.users.length;
   const emprestimosAtivos = state.loans.filter(l => !l.dataDevolucao);
@@ -1355,7 +1379,7 @@ function renderRelatorios() {
     tblPrazos.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum empréstimo ativo no momento.</td></tr></tbody>`;
   } else {
     tblPrazos.innerHTML = `
-      <thead><tr><th>Livro</th><th>Estudante</th><th>Previsão</th><th>Tempo restante</th></tr></thead>
+      <thead><tr><th>Livro</th><th>Estudante</th><th>Data do empréstimo</th><th>Previsão</th><th>Tempo restante</th></tr></thead>
       <tbody>${prazos.map(({ loan, dias }) => {
         const b = bookById(loan.bookId), u = userById(loan.userId);
         let tempoBadge;
@@ -1365,6 +1389,7 @@ function renderRelatorios() {
         return `<tr>
           <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
           <td data-label="Estudante">${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
+          <td data-label="Data do empréstimo">${fmtDate(loan.dataEmprestimo)}</td>
           <td data-label="Previsão">${fmtDate(loan.dataPrevista)}</td>
           <td data-label="Tempo restante">${tempoBadge}</td>
         </tr>`;
@@ -1435,13 +1460,15 @@ function filteredBooks() {
   return state.books.filter(b => {
     if (q && !(b.titulo.toLowerCase().includes(q) || b.autor.toLowerCase().includes(q))) return false;
     if (shelf && b.estante !== Number(shelf)) return false;
-    if (status && b.status !== status) return false;
+    if (status === 'disponivel' && bookDisponiveis(b) <= 0) return false;
+    if (status === 'emprestado' && b.quantidadeEmprestada <= 0) return false;
     return true;
   });
 }
 function renderLivros() {
   const all = filteredBooks();
-  document.getElementById('livrosCount').textContent = state.books.length;
+  const totalCopias = state.books.reduce((sum, b) => sum + (b.quantidade ?? 1), 0);
+  document.getElementById('livrosCount').textContent = totalCopias;
   const totalPages = Math.max(1, Math.ceil(all.length / LIVROS_PAGE_SIZE));
   if (livrosPage > totalPages) livrosPage = totalPages;
   const start = (livrosPage - 1) * LIVROS_PAGE_SIZE;
@@ -1452,14 +1479,15 @@ function renderLivros() {
     tbl.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum livro encontrado com esses filtros.</td></tr></tbody>`;
   } else {
     tbl.innerHTML = `
-      <thead><tr><th></th><th>Título</th><th>Autor(a)</th><th>Estante</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th></th><th>Título</th><th>Autor(a)</th><th>Estante</th><th>Quantidade</th><th>Status</th><th></th></tr></thead>
       <tbody>${pageItems.map(b => `
         <tr>
           <td class="book-cover-cell">${bookCoverCellHtml(b)}</td>
           <td data-label="Título">${escapeHtml(b.titulo)}</td>
           <td data-label="Autor(a)">${escapeHtml(b.autor)}</td>
           <td data-label="Estante">${b.estante}</td>
-          <td data-label="Status">${b.status === 'disponivel' ? '<span class="badge badge-good">Disponível</span>' : '<span class="badge badge-warning">Emprestado</span>'}</td>
+          <td data-label="Quantidade">${b.quantidade ?? 1}</td>
+          <td data-label="Status">${bookAvailabilityBadgeHtml(b)}</td>
           <td class="actions-cell">
             <button class="btn btn-sm" onclick="editBook(${b.id})">Editar</button>
             <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.id})">Excluir</button>
@@ -1488,6 +1516,11 @@ function editBook(id) {
   document.getElementById('livroTitulo').value = b.titulo;
   document.getElementById('livroAutor').value = b.autor;
   document.getElementById('livroEstante').value = b.estante;
+  document.getElementById('livroQuantidade').value = b.quantidade ?? 1;
+  document.getElementById('livroQuantidade').min = String(b.quantidadeEmprestada || 0) === '0' ? 1 : b.quantidadeEmprestada;
+  document.getElementById('livroQuantidadeHint').textContent = b.quantidadeEmprestada > 0
+    ? `${b.quantidadeEmprestada} cópia${b.quantidadeEmprestada === 1 ? '' : 's'} emprestada${b.quantidadeEmprestada === 1 ? '' : 's'} no momento — a quantidade não pode ficar menor que isso.`
+    : '';
   document.getElementById('livroCapaUrl').value = b.capaUrl || '';
   updateCapaPreview();
   openModal('modalLivro');
@@ -1495,8 +1528,8 @@ function editBook(id) {
 function deleteBook(id) {
   const b = bookById(id);
   if (!b) return;
-  if (b.status === 'emprestado') {
-    showToast('Este livro está emprestado. Registre a devolução antes de excluir.');
+  if (b.quantidadeEmprestada > 0) {
+    showToast('Este livro tem cópias emprestadas. Registre a devolução antes de excluir.');
     return;
   }
   askConfirm('Excluir livro', `Tem certeza que deseja excluir "${b.titulo}" do acervo?`, async () => {
@@ -1515,6 +1548,9 @@ document.getElementById('btnNovoLivro').addEventListener('click', () => {
   document.getElementById('livroTitulo').value = '';
   document.getElementById('livroAutor').value = '';
   document.getElementById('livroEstante').value = '1';
+  document.getElementById('livroQuantidade').value = 1;
+  document.getElementById('livroQuantidade').min = 1;
+  document.getElementById('livroQuantidadeHint').textContent = '';
   document.getElementById('livroCapaUrl').value = '';
   updateCapaPreview();
   openModal('modalLivro');
@@ -1535,15 +1571,23 @@ document.getElementById('btnSalvarLivro').addEventListener('click', async () => 
   const titulo = document.getElementById('livroTitulo').value.trim();
   const autor = document.getElementById('livroAutor').value.trim() || 'Não informado';
   const estante = Number(document.getElementById('livroEstante').value);
+  const quantidade = Math.trunc(Number(document.getElementById('livroQuantidade').value));
   const capaUrl = document.getElementById('livroCapaUrl').value.trim() || null;
   if (!titulo) { showToast('Informe o título do livro.'); return; }
+  if (!quantidade || quantidade < 1) { showToast('Informe uma quantidade válida (mínimo 1).'); return; }
   const id = document.getElementById('livroId').value;
+  const existing = id ? bookById(Number(id)) : null;
+  if (existing && quantidade < existing.quantidadeEmprestada) {
+    showToast(`A quantidade não pode ser menor que ${existing.quantidadeEmprestada} (cópias já emprestadas).`);
+    return;
+  }
   setLoading(true);
   let error;
   if (id) {
-    ({ error } = await sb.from('books').update({ titulo, autor, estante, capa_url: capaUrl }).eq('id', Number(id)));
+    const novoStatus = quantidade - existing.quantidadeEmprestada > 0 ? 'disponivel' : 'emprestado';
+    ({ error } = await sb.from('books').update({ titulo, autor, estante, quantidade, status: novoStatus, capa_url: capaUrl }).eq('id', Number(id)));
   } else {
-    ({ error } = await sb.from('books').insert({ titulo, autor, estante, status: 'disponivel', capa_url: capaUrl }));
+    ({ error } = await sb.from('books').insert({ titulo, autor, estante, quantidade, status: 'disponivel', capa_url: capaUrl }));
   }
   if (error) { setLoading(false); showToast(friendlyError(error)); return; }
   showToast(id ? 'Livro atualizado.' : 'Livro cadastrado.');
@@ -1741,12 +1785,17 @@ function renderEmprestimos() {
 async function returnLoan(id) {
   const loan = state.loans.find(l => l.id === id);
   if (!loan) return;
+  const b = bookById(loan.bookId);
   setLoading(true);
   const hoje = todayISO();
   const { error: e1 } = await sb.from('loans').update({ data_devolucao: hoje }).eq('id', id);
   if (e1) { setLoading(false); showToast(friendlyError(e1)); return; }
-  const { error: e2 } = await sb.from('books').update({ status: 'disponivel' }).eq('id', loan.bookId);
-  if (e2) { setLoading(false); showToast(friendlyError(e2)); return; }
+  if (b) {
+    const novaQuantidadeEmprestada = Math.max(0, b.quantidadeEmprestada - 1);
+    const novoStatus = novaQuantidadeEmprestada < b.quantidade ? 'disponivel' : 'emprestado';
+    const { error: e2 } = await sb.from('books').update({ quantidade_emprestada: novaQuantidadeEmprestada, status: novoStatus }).eq('id', loan.bookId);
+    if (e2) { setLoading(false); showToast(friendlyError(e2)); return; }
+  }
   showToast('Devolução registrada.');
   await Promise.all([loadBooks(), loadLoans()]);
   renderAll();
@@ -1757,7 +1806,7 @@ async function returnLoan(id) {
 let selectedLoanBookId = null;
 document.getElementById('btnNovoEmprestimo').addEventListener('click', () => {
   if (!state.users.length) { showToast('Cadastre ao menos um estudante antes de registrar um empréstimo.'); return; }
-  if (!state.books.some(b => b.status === 'disponivel')) { showToast('Não há livros disponíveis no momento.'); return; }
+  if (!state.books.some(b => bookDisponiveis(b) > 0)) { showToast('Não há livros disponíveis no momento.'); return; }
   selectedLoanBookId = null;
   document.getElementById('emprestimoLivroSearch').value = '';
   document.getElementById('emprestimoLivroId').value = '';
@@ -1784,7 +1833,7 @@ livroSearchInput.addEventListener('input', () => {
   document.getElementById('emprestimoLivroId').value = '';
   const q = livroSearchInput.value.trim().toLowerCase();
   if (!q) { comboLivros.classList.remove('active'); return; }
-  const matches = state.books.filter(b => b.status === 'disponivel' &&
+  const matches = state.books.filter(b => bookDisponiveis(b) > 0 &&
     (b.titulo.toLowerCase().includes(q) || b.autor.toLowerCase().includes(q))).slice(0, 30);
   if (!matches.length) {
     comboLivros.innerHTML = `<div class="combo-empty">Nenhum livro disponível encontrado.</div>`;
@@ -1794,7 +1843,7 @@ livroSearchInput.addEventListener('input', () => {
         ${bookCoverCellHtml(b)}
         <div>
           ${escapeHtml(b.titulo)}
-          <div class="sub">${escapeHtml(b.autor)} · Estante ${b.estante}</div>
+          <div class="sub">${escapeHtml(b.autor)} · Estante ${b.estante}${b.quantidade > 1 ? ` · ${bookDisponiveis(b)} de ${b.quantidade} disponíveis` : ''}</div>
         </div>
       </div>`).join('');
   }
@@ -1821,14 +1870,16 @@ document.getElementById('btnSalvarEmprestimo').addEventListener('click', async (
   if (!bookId) { showToast('Selecione um livro disponível na lista.'); return; }
   if (!userId) { showToast('Selecione um estudante.'); return; }
   const b = bookById(bookId);
-  if (!b || b.status !== 'disponivel') { showToast('Este livro não está mais disponível.'); return; }
+  if (!b || bookDisponiveis(b) <= 0) { showToast('Este livro não está mais disponível.'); return; }
   setLoading(true);
   const { error: e1 } = await sb.from('loans').insert({
     book_id: bookId, student_id: userId,
     data_emprestimo: data, data_prevista: addDaysISO(data, prazo), data_devolucao: null
   });
   if (e1) { setLoading(false); showToast(friendlyError(e1)); return; }
-  const { error: e2 } = await sb.from('books').update({ status: 'emprestado' }).eq('id', bookId);
+  const novaQuantidadeEmprestada = b.quantidadeEmprestada + 1;
+  const novoStatus = novaQuantidadeEmprestada >= b.quantidade ? 'emprestado' : 'disponivel';
+  const { error: e2 } = await sb.from('books').update({ quantidade_emprestada: novaQuantidadeEmprestada, status: novoStatus }).eq('id', bookId);
   if (e2) { setLoading(false); showToast(friendlyError(e2)); return; }
   showToast('Empréstimo registrado.');
   closeModal('modalEmprestimo');
