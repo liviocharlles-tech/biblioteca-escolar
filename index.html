@@ -318,13 +318,14 @@
   /* ---------- Toolbar / forms ---------- */
   .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
   .toolbar .grow { flex: 1; min-width: 180px; }
-  input, select {
+  input, select, textarea {
     font-family: inherit; font-size: 13px; color: var(--text-primary);
     background: var(--surface-1); border: 1px solid var(--border);
     border-radius: var(--radius-sm); padding: 8.5px 12px; outline: none;
     transition: border-color .15s ease, box-shadow .15s ease;
   }
-  input:focus, select:focus { border-color: var(--series-1); box-shadow: 0 0 0 3px rgba(42,120,214,0.14); }
+  textarea { width: 100%; resize: vertical; line-height: 1.5; }
+  input:focus, select:focus, textarea:focus { border-color: var(--series-1); box-shadow: 0 0 0 3px rgba(42,120,214,0.14); }
   .btn {
     display:inline-flex; align-items:center; gap:6px;
     font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); padding: 8.5px 15px;
@@ -556,7 +557,7 @@
   }
   @media (max-width: 900px) {
     /* Evita que o iOS Safari dê zoom automático ao focar campos de formulário */
-    input, select { font-size: 16px; }
+    input, select, textarea { font-size: 16px; }
   }
 </style>
 </head>
@@ -790,7 +791,7 @@
         </div>
 
         <div class="card">
-          <div class="table-wrap"><table id="tableAlunos"></table></div>
+          <div class="table-wrap"><table id="tableAlunos" class="table-responsive"></table></div>
           <div class="pagination" id="paginationAlunos"></div>
         </div>
       </div>
@@ -990,12 +991,30 @@
       <div class="field-hint" id="livroQuantidadeHint"></div>
     </div>
     <div class="field">
+      <label>Faixa etária (opcional)</label>
+      <select id="livroFaixaEtaria">
+        <option value="">Não informada</option>
+        <option value="Livre">Livre (todas as idades)</option>
+        <option value="10 anos">A partir de 10 anos</option>
+        <option value="12 anos">A partir de 12 anos</option>
+        <option value="14 anos">A partir de 14 anos</option>
+        <option value="16 anos">A partir de 16 anos</option>
+        <option value="18 anos">A partir de 18 anos</option>
+      </select>
+      <div class="field-hint">Aparece no catálogo público, junto com a sinopse.</div>
+    </div>
+    <div class="field">
       <label>URL da capa (opcional)</label>
       <input type="url" id="livroCapaUrl" placeholder="Cole aqui o link de uma imagem da capa">
       <div class="field-hint">Dica: procure o livro no Google Imagens, clique com o botão direito na capa e escolha "Copiar endereço da imagem".</div>
     </div>
     <div class="capa-preview-wrap hidden" id="capaPreviewWrap">
       <img id="capaPreviewImg" class="capa-preview" alt="Pré-visualização da capa">
+    </div>
+    <div class="field">
+      <label>Sinopse (opcional)</label>
+      <textarea id="livroSinopse" rows="4" placeholder="Um breve resumo da obra, exibido no catálogo público..."></textarea>
+      <div class="field-hint">Aparece para os estudantes no catálogo público (QR code das estantes).</div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modalLivro')">Cancelar</button>
@@ -1238,7 +1257,8 @@ async function loadBooks() {
   if (error) { showToast(friendlyError(error)); return; }
   state.books = (data || []).map(r => ({
     id: r.id, titulo: r.titulo, autor: r.autor, estante: r.estante, status: r.status, capaUrl: r.capa_url,
-    quantidade: r.quantidade ?? 1, quantidadeEmprestada: r.quantidade_emprestada ?? 0,
+    quantidade: r.quantidade ?? 1, quantidadeEmprestada: r.quantidade_emprestada ?? 0, sinopse: r.sinopse || '',
+    faixaEtaria: r.faixa_etaria || '',
   }));
 }
 async function loadUsers() {
@@ -1698,7 +1718,9 @@ function editBook(id) {
   document.getElementById('livroQuantidadeHint').textContent = b.quantidadeEmprestada > 0
     ? `${b.quantidadeEmprestada} cópia${b.quantidadeEmprestada === 1 ? '' : 's'} emprestada${b.quantidadeEmprestada === 1 ? '' : 's'} no momento — a quantidade não pode ficar menor que isso.`
     : '';
+  document.getElementById('livroFaixaEtaria').value = b.faixaEtaria || '';
   document.getElementById('livroCapaUrl').value = b.capaUrl || '';
+  document.getElementById('livroSinopse').value = b.sinopse || '';
   updateCapaPreview();
   openModal('modalLivro');
 }
@@ -1728,7 +1750,9 @@ document.getElementById('btnNovoLivro').addEventListener('click', () => {
   document.getElementById('livroQuantidade').value = 1;
   document.getElementById('livroQuantidade').min = 1;
   document.getElementById('livroQuantidadeHint').textContent = '';
+  document.getElementById('livroFaixaEtaria').value = '';
   document.getElementById('livroCapaUrl').value = '';
+  document.getElementById('livroSinopse').value = '';
   updateCapaPreview();
   openModal('modalLivro');
 });
@@ -1750,6 +1774,8 @@ document.getElementById('btnSalvarLivro').addEventListener('click', async () => 
   const estante = Number(document.getElementById('livroEstante').value);
   const quantidade = Math.trunc(Number(document.getElementById('livroQuantidade').value));
   const capaUrl = document.getElementById('livroCapaUrl').value.trim() || null;
+  const sinopse = document.getElementById('livroSinopse').value.trim() || null;
+  const faixaEtaria = document.getElementById('livroFaixaEtaria').value || null;
   if (!titulo) { showToast('Informe o título do livro.'); return; }
   if (!quantidade || quantidade < 1) { showToast('Informe uma quantidade válida (mínimo 1).'); return; }
   const id = document.getElementById('livroId').value;
@@ -1762,9 +1788,9 @@ document.getElementById('btnSalvarLivro').addEventListener('click', async () => 
   let error;
   if (id) {
     const novoStatus = quantidade - existing.quantidadeEmprestada > 0 ? 'disponivel' : 'emprestado';
-    ({ error } = await sb.from('books').update({ titulo, autor, estante, quantidade, status: novoStatus, capa_url: capaUrl }).eq('id', Number(id)));
+    ({ error } = await sb.from('books').update({ titulo, autor, estante, quantidade, status: novoStatus, capa_url: capaUrl, sinopse, faixa_etaria: faixaEtaria }).eq('id', Number(id)));
   } else {
-    ({ error } = await sb.from('books').insert({ titulo, autor, estante, quantidade, status: 'disponivel', capa_url: capaUrl }));
+    ({ error } = await sb.from('books').insert({ titulo, autor, estante, quantidade, status: 'disponivel', capa_url: capaUrl, sinopse, faixa_etaria: faixaEtaria }));
   }
   if (error) { setLoading(false); showToast(friendlyError(error)); return; }
   showToast(id ? 'Livro atualizado.' : 'Livro cadastrado.');
@@ -1823,13 +1849,13 @@ function renderAlunos() {
       <thead><tr><th>Nome</th><th>Turma</th><th>Turno</th><th>Ensino</th><th>AEE</th><th>Contato</th><th>Empréstimos ativos</th><th></th></tr></thead>
       <tbody>${list.map(u => `
         <tr>
-          <td>${escapeHtml(u.nome)}</td>
-          <td>${escapeHtml(u.turma)}</td>
-          <td>${escapeHtml(u.turno || '—')}</td>
-          <td>${escapeHtml(u.ensino || '—')}</td>
-          <td>${u.aee === 'sim' ? '<span class="badge badge-muted">Sim</span>' : '—'}</td>
-          <td>${escapeHtml(u.contato || '—')}</td>
-          <td>${activeLoansCountForUser(u.id)}</td>
+          <td data-label="Nome">${escapeHtml(u.nome)}</td>
+          <td data-label="Turma">${escapeHtml(u.turma)}</td>
+          <td data-label="Turno">${escapeHtml(u.turno || '—')}</td>
+          <td data-label="Ensino">${escapeHtml(u.ensino || '—')}</td>
+          <td data-label="AEE">${u.aee === 'sim' ? '<span class="badge badge-muted">Sim</span>' : '—'}</td>
+          <td data-label="Contato">${escapeHtml(u.contato || '—')}</td>
+          <td data-label="Empréstimos ativos">${activeLoansCountForUser(u.id)}</td>
           <td class="actions-cell">
             <button class="btn btn-sm" onclick="editUser(${u.id})">Editar</button>
             <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Excluir</button>

@@ -109,6 +109,56 @@
     text-align: center; padding: 50px 10px; color: var(--text-muted); font-size: 13.5px;
   }
   .error-state { color: var(--status-critical); }
+
+  .book-card { cursor: pointer; transition: box-shadow .15s ease, transform .15s ease; }
+  .book-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,0.08); transform: translateY(-1px); }
+  .book-cover { cursor: zoom-in; }
+
+  /* ---------- Modal de detalhes / sinopse ---------- */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(11,11,11,0.55);
+    align-items: center; justify-content: center; z-index: 200; padding: 16px;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal-box {
+    position: relative; width: 100%; max-width: 420px;
+    background: var(--surface-1); border-radius: 14px;
+    max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-close {
+    position: absolute; top: 10px; right: 10px; z-index: 2;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(0,0,0,0.5); color: #fff; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close svg { width: 16px; height: 16px; }
+  .modal-cover-wrap {
+    width: 100%; aspect-ratio: 3 / 2; background: var(--grid);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    border-radius: 14px 14px 0 0; cursor: zoom-in;
+  }
+  .modal-cover-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+  .modal-cover-wrap.placeholder { cursor: default; color: var(--text-muted); }
+  .modal-cover-wrap.placeholder svg { width: 40px; height: 40px; }
+  .modal-body { padding: 18px 20px 22px 20px; }
+  .modal-body h2 { font-size: 18px; margin: 0 0 4px 0; line-height: 1.3; }
+  .modal-autor { font-size: 13.5px; color: var(--text-secondary); margin: 0 0 10px 0; }
+  .modal-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .estante-chip {
+    font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+    background: var(--grid); padding: 4px 10px; border-radius: 999px;
+  }
+  .modal-sinopse-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+  .modal-sinopse { font-size: 13.5px; line-height: 1.65; color: var(--text-secondary); margin: 0; white-space: pre-line; }
+
+  /* ---------- Zoom da capa ---------- */
+  .lightbox-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    align-items: center; justify-content: center; z-index: 300; padding: 24px; cursor: zoom-out;
+  }
+  .lightbox-backdrop.active { display: flex; }
+  .lightbox-backdrop img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 </style>
 </head>
 <body>
@@ -136,6 +186,28 @@
   <div id="results"></div>
 </div>
 
+<!-- ===================== MODAL: DETALHES / SINOPSE ===================== -->
+<div class="modal-backdrop" id="modalDetalhe">
+  <div class="modal-box">
+    <button class="modal-close" id="btnFecharDetalhe" aria-label="Fechar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="modal-cover-wrap" id="detalheCoverWrap"></div>
+    <div class="modal-body">
+      <h2 id="detalheTitulo"></h2>
+      <p class="modal-autor" id="detalheAutor"></p>
+      <div class="modal-meta" id="detalheMeta"></div>
+      <div class="modal-sinopse-label">Sinopse</div>
+      <p class="modal-sinopse" id="detalheSinopse"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ZOOM DA CAPA ===================== -->
+<div class="lightbox-backdrop" id="lightbox">
+  <img id="lightboxImg" src="" alt="">
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://wzfstallegpihgihiefg.supabase.co';
@@ -146,8 +218,10 @@ const params = new URLSearchParams(window.location.search);
 const estante = params.get('estante');
 
 let allBooks = [];
+let currentList = [];
 
 const BOOK_COVER_PLACEHOLDER_HTML = `<div class="book-cover-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>`;
+const BOOK_COVER_PLACEHOLDER_LARGE_HTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
 function handleCoverError(img) { img.outerHTML = BOOK_COVER_PLACEHOLDER_HTML; }
 function escapeHtml(s) {
   return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -168,7 +242,7 @@ async function loadBooks() {
   results.innerHTML = '<div class="loading-state">Carregando…</div>';
   summary.textContent = '';
 
-  let query = sb.from('books').select('titulo, autor, estante, status, capa_url, quantidade, quantidade_emprestada').order('titulo');
+  let query = sb.from('books').select('titulo, autor, estante, status, capa_url, quantidade, quantidade_emprestada, sinopse, faixa_etaria').order('titulo');
   if (estante) query = query.eq('estante', Number(estante));
 
   const { data, error } = await query;
@@ -188,11 +262,25 @@ function bookDisponiveis(b) {
   return Math.max(0, quantidade - emprestada);
 }
 
+function bookBadgeHtml(b) {
+  const quantidade = b.quantidade ?? 1;
+  const disp = bookDisponiveis(b);
+  if (quantidade > 1) {
+    return disp > 0
+      ? `<span class="badge badge-good">${disp} de ${quantidade} disponíveis</span>`
+      : `<span class="badge badge-out">0 de ${quantidade} disponíveis</span>`;
+  }
+  return disp > 0
+    ? '<span class="badge badge-good">Disponível</span>'
+    : '<span class="badge badge-out">Emprestado</span>';
+}
+
 function render() {
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
   const list = allBooks.filter(b =>
     !q || b.titulo.toLowerCase().includes(q) || (b.autor || '').toLowerCase().includes(q)
   );
+  currentList = list;
   const disponiveis = list.filter(b => bookDisponiveis(b) > 0).length;
 
   document.getElementById('summary').innerHTML =
@@ -203,33 +291,79 @@ function render() {
     results.innerHTML = `<div class="empty-state">Nenhum livro encontrado.</div>`;
     return;
   }
-  results.innerHTML = list.map(b => {
-    const quantidade = b.quantidade ?? 1;
-    const disp = bookDisponiveis(b);
-    let badge;
-    if (quantidade > 1) {
-      badge = disp > 0
-        ? `<span class="badge badge-good">${disp} de ${quantidade} disponíveis</span>`
-        : `<span class="badge badge-out">0 de ${quantidade} disponíveis</span>`;
-    } else {
-      badge = disp > 0
-        ? '<span class="badge badge-good">Disponível</span>'
-        : '<span class="badge badge-out">Emprestado</span>';
-    }
+  results.innerHTML = list.map((b, idx) => {
+    const badge = bookBadgeHtml(b);
+    const metaParts = [];
+    if (!estante) metaParts.push('Estante ' + b.estante);
+    if (b.faixa_etaria) metaParts.push(faixaEtariaLabel(b.faixa_etaria));
+    const metaLine = metaParts.length ? `<div class="estante-tag">${escapeHtml(metaParts.join(' · '))}</div>` : '';
     return `
-    <div class="book-card">
+    <div class="book-card" onclick="openDetail(${idx})">
       ${b.capa_url
-        ? `<img src="${escapeHtml(b.capa_url)}" class="book-cover" alt="" onerror="handleCoverError(this)">`
+        ? `<img src="${escapeHtml(b.capa_url)}" class="book-cover" alt="" onerror="handleCoverError(this)" onclick="openZoom(${idx}, event)">`
         : BOOK_COVER_PLACEHOLDER_HTML}
       <div class="book-info">
         <div class="titulo">${escapeHtml(b.titulo)}</div>
         <div class="autor">${escapeHtml(b.autor)}</div>
-        ${!estante ? `<div class="estante-tag">Estante ${b.estante}</div>` : ''}
+        ${metaLine}
       </div>
       ${badge}
     </div>`;
   }).join('');
 }
+
+function faixaEtariaLabel(v) {
+  return v === 'Livre' ? 'Livre' : ('A partir de ' + v);
+}
+
+/* ================= DETALHES / SINOPSE ================= */
+function openDetail(idx) {
+  const b = currentList[idx];
+  if (!b) return;
+  document.getElementById('detalheTitulo').textContent = b.titulo;
+  document.getElementById('detalheAutor').textContent = b.autor || 'Autor não informado';
+  const estanteChip = !estante ? `<span class="estante-chip">Estante ${b.estante}</span>` : '';
+  const idadeChip = b.faixa_etaria ? `<span class="estante-chip">${escapeHtml(faixaEtariaLabel(b.faixa_etaria))}</span>` : '';
+  document.getElementById('detalheMeta').innerHTML = bookBadgeHtml(b) + estanteChip + idadeChip;
+  document.getElementById('detalheSinopse').textContent =
+    (b.sinopse && b.sinopse.trim()) ? b.sinopse : 'Sinopse não cadastrada para este livro.';
+
+  const coverWrap = document.getElementById('detalheCoverWrap');
+  coverWrap.classList.remove('placeholder');
+  if (b.capa_url) {
+    coverWrap.innerHTML = `<img src="${escapeHtml(b.capa_url)}" alt="" onerror="this.closest('.modal-cover-wrap').classList.add('placeholder'); this.remove();">`;
+    coverWrap.onclick = () => openZoom(idx);
+  } else {
+    coverWrap.classList.add('placeholder');
+    coverWrap.innerHTML = BOOK_COVER_PLACEHOLDER_LARGE_HTML;
+    coverWrap.onclick = null;
+  }
+  document.getElementById('modalDetalhe').classList.add('active');
+}
+function closeDetail() { document.getElementById('modalDetalhe').classList.remove('active'); }
+document.getElementById('btnFecharDetalhe').addEventListener('click', closeDetail);
+document.getElementById('modalDetalhe').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeDetail();
+});
+
+/* ================= ZOOM DA CAPA ================= */
+function openZoom(idx, ev) {
+  if (ev) ev.stopPropagation();
+  const b = currentList[idx];
+  if (!b || !b.capa_url) return;
+  document.getElementById('lightboxImg').src = b.capa_url;
+  document.getElementById('lightboxImg').alt = b.titulo || '';
+  document.getElementById('lightbox').classList.add('active');
+}
+function closeZoom() {
+  document.getElementById('lightbox').classList.remove('active');
+  document.getElementById('lightboxImg').src = '';
+}
+document.getElementById('lightbox').addEventListener('click', closeZoom);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeZoom(); closeDetail(); }
+});
 
 document.getElementById('searchInput').addEventListener('input', render);
 document.getElementById('btnRefresh').addEventListener('click', loadBooks);
