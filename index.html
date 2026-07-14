@@ -160,6 +160,31 @@
   .card h3 { margin: 0 0 2px 0; font-size: 14.5px; }
   .card .sub { margin: 0 0 14px 0; font-size: 12px; color: var(--text-muted); }
 
+  /* ---------- Ajuda ---------- */
+  .help-card { margin-bottom: 16px; }
+  .help-card:last-child { margin-bottom: 0; }
+  .help-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .help-card-icon {
+    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    background: rgba(42,120,214,0.12); color: var(--series-1);
+    display: flex; align-items: center; justify-content: center;
+  }
+  [data-theme="dark"] .help-card-icon { background: rgba(57,135,229,0.16); }
+  .help-card-icon svg { width: 17px; height: 17px; }
+  .help-card-head h3 { margin: 0; font-size: 15px; }
+  .help-card p { margin: 0 0 8px 0; font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+  .help-card ol, .help-card ul { margin: 0 0 8px 0; padding-left: 20px; font-size: 13px; color: var(--text-secondary); line-height: 1.65; }
+  .help-card li { margin-bottom: 3px; }
+  .help-card strong { color: var(--text-primary); }
+  .help-tip {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: var(--page-plane); border: 1px solid var(--border); border-radius: 9px;
+    padding: 9px 12px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;
+  }
+  .help-tip svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; color: var(--series-1); }
+  .help-tip strong { color: var(--text-primary); }
+  .help-intro { font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 18px 0; max-width: 760px; }
+
   .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .bar-row:last-child { margin-bottom: 0; }
   .bar-label { width: 88px; flex-shrink:0; font-size: 12.5px; color: var(--text-secondary); }
@@ -574,6 +599,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Administração
     </button>
+    <button class="nav-item" data-view="ajuda">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Ajuda
+    </button>
   </nav>
 
   <div class="sidebar-footer">
@@ -780,6 +809,92 @@
 
     <div class="card">
       <div class="table-wrap"><table id="tableContas" class="table-responsive"></table></div>
+    </div>
+  </section>
+
+  <!-- ===================== AJUDA ===================== -->
+  <section class="view" id="view-ajuda">
+    <div class="topbar">
+      <div>
+        <h1>Ajuda</h1>
+        <p>Como usar o Painel da Biblioteca Maria Carolina de Jesus</p>
+      </div>
+    </div>
+
+    <p class="help-intro">Este guia explica rapidamente cada área do painel. Se preferir, use o menu ao lado para ir direto na tela sobre a qual você tem dúvida — as explicações abaixo seguem a mesma ordem do menu.</p>
+
+    <div class="card help-card">
+      <div class="help-card-head">
+        <div class="help-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></div>
+        <h3>Painel da Biblioteca</h3>
+      </div>
+      <p>É a tela inicial. Mostra um resumo geral: total de livros (contando as cópias), quantos estão emprestados no momento, quantos estudantes estão cadastrados, quantos empréstimos estão em atraso, gráfico de livros por estante e a lista de empréstimos atrasados e das últimas movimentações.</p>
+    </div>
+
+    <div class="card help-card">
+      <div class="help-card-head">
+        <div class="help-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+        <h3>Livros</h3>
+      </div>
+      <p>Aqui fica o acervo. Para cadastrar um livro novo, clique em <strong>Novo livro</strong> e preencha título, autor, estante, quantidade de cópias e (se quiser) a URL de uma imagem da capa.</p>
+      <ol>
+        <li><strong>Quantidade de cópias:</strong> se a biblioteca tem 3 exemplares do mesmo título, cadastre uma vez com quantidade 3 — o sistema controla sozinho quantas estão disponíveis e quantas emprestadas (ex: "2 de 3 disponíveis").</li>
+        <li><strong>Editar:</strong> clique em Editar na linha do livro. Não é possível diminuir a quantidade de cópias abaixo do número de exemplares que já estão emprestados.</li>
+        <li><strong>Excluir:</strong> só é permitido quando nenhuma cópia daquele título estiver emprestada.</li>
+        <li><strong>Buscar e filtrar:</strong> use a busca por título/autor e os filtros de estante e status no topo da tabela.</li>
+      </ol>
+    </div>
+
+    <div class="card help-card">
+      <div class="help-card-head">
+        <div class="help-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h3>Estudantes</h3>
+      </div>
+      <p>Cadastro dos alunos que podem pegar livros emprestados. Clique em <strong>Novo estudante</strong> para adicionar nome, turma, turno, tipo de ensino, se é atendido pelo AEE e um contato (opcional).</p>
+      <p>Um estudante pode ser marcado como <strong>Bloqueado</strong> em vez de excluído — assim o histórico de empréstimos dele continua registrado, mas ele deixa de aparecer como opção ao registrar um novo empréstimo.</p>
+    </div>
+
+    <div class="card help-card">
+      <div class="help-card-head">
+        <div class="help-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57"/><polyline points="21 3 21 9 15 9"/></svg></div>
+        <h3>Empréstimos</h3>
+      </div>
+      <p>Para registrar um empréstimo, clique em <strong>Novo empréstimo</strong>, busque o livro (só aparecem os que têm cópia disponível) e o estudante, e confirme a data prevista de devolução.</p>
+      <p>Quando o livro voltar, clique em <strong>Devolver</strong> na linha do empréstimo — a cópia volta a ficar disponível automaticamente. Empréstimos que passaram da data prevista aparecem com o status <strong>Atrasado</strong>.</p>
+    </div>
+
+    <div class="card help-card">
+      <div class="help-card-head">
+        <div class="help-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <h3>Relatórios</h3>
+      </div>
+      <p>Reúne indicadores gerais (estudantes cadastrados, livros emprestados no momento, livros disponíveis, empréstimos em atraso, empréstimos no mês e duração média dos empréstimos), a lista de empréstimos ativos com a data em que cada um começou e quanto tempo falta para a devolução, o ranking de estudantes com mais empréstimos e a distribuição de empréstimos ativos por turma.</p>
+    </div>
+
+    <div class="card help-card">
+      <div class="help-card-head">
+        <div class="help-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3>Administração</h3>
+      </div>
+      <p>Visível apenas para contas com papel <strong>Administrador</strong>. É aqui que se gerencia quem tem acesso ao painel.</p>
+      <ol>
+        <li><strong>Convidar usuário:</strong> informe nome e e-mail da pessoa e escolha o papel (Administrador ou Padrão). Ela recebe um e-mail para definir a própria senha — ninguém, nem o administrador, vê ou digita a senha de outra pessoa.</li>
+        <li><strong>Papel Padrão x Administrador:</strong> contas Padrão usam o painel normalmente (livros, estudantes, empréstimos, relatórios), mas não veem a aba Administração nem podem gerenciar outras contas.</li>
+        <li><strong>Bloquear ou excluir:</strong> uma conta bloqueada não consegue mais entrar, mas fica registrada; excluir remove o acesso definitivamente.</li>
+      </ol>
+    </div>
+
+    <div class="card help-card">
+      <div class="help-card-head">
+        <div class="help-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 21h3M21 14v3"/></svg></div>
+        <h3>Catálogo público (QR code das estantes)</h3>
+      </div>
+      <p>Cada estante tem um QR code colado nela. Ao apontar a câmera do celular, o estudante abre um catálogo simples — sem precisar de login — mostrando os livros daquela estante e se há cópias disponíveis no momento. É só para consulta: os empréstimos continuam sendo registrados por um administrador ou funcionário aqui no painel.</p>
+    </div>
+
+    <div class="help-tip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span><strong>Outros atalhos:</strong> "Exportar dados (.json)" gera uma cópia local dos dados a qualquer momento (o banco já salva tudo automaticamente, então isso é só uma conveniência). "Alternar tema" troca entre modo claro e escuro. Em telas pequenas, use o ícone de menu no canto superior para abrir esta barra lateral.</span>
     </div>
   </section>
 
