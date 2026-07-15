@@ -242,7 +242,7 @@ async function loadBooks() {
   results.innerHTML = '<div class="loading-state">Carregando…</div>';
   summary.textContent = '';
 
-  let query = sb.from('books').select('titulo, autor, estante, status, capa_url, quantidade, quantidade_emprestada, sinopse, faixa_etaria').order('titulo');
+  let query = sb.from('books').select('titulo, autor, estante, status, capa_url, quantidade, quantidade_emprestada, sinopse, categoria').order('titulo');
   if (estante) query = query.eq('estante', Number(estante));
 
   const { data, error } = await query;
@@ -295,7 +295,7 @@ function render() {
     const badge = bookBadgeHtml(b);
     const metaParts = [];
     if (!estante) metaParts.push('Estante ' + b.estante);
-    if (b.faixa_etaria) metaParts.push(faixaEtariaLabel(b.faixa_etaria));
+    if (b.categoria) metaParts.push(b.categoria);
     const metaLine = metaParts.length ? `<div class="estante-tag">${escapeHtml(metaParts.join(' · '))}</div>` : '';
     return `
     <div class="book-card" onclick="openDetail(${idx})">
@@ -312,10 +312,6 @@ function render() {
   }).join('');
 }
 
-function faixaEtariaLabel(v) {
-  return v === 'Livre' ? 'Livre' : ('A partir de ' + v);
-}
-
 /* ================= DETALHES / SINOPSE ================= */
 function openDetail(idx) {
   const b = currentList[idx];
@@ -323,8 +319,8 @@ function openDetail(idx) {
   document.getElementById('detalheTitulo').textContent = b.titulo;
   document.getElementById('detalheAutor').textContent = b.autor || 'Autor não informado';
   const estanteChip = !estante ? `<span class="estante-chip">Estante ${b.estante}</span>` : '';
-  const idadeChip = b.faixa_etaria ? `<span class="estante-chip">${escapeHtml(faixaEtariaLabel(b.faixa_etaria))}</span>` : '';
-  document.getElementById('detalheMeta').innerHTML = bookBadgeHtml(b) + estanteChip + idadeChip;
+  const categoriaChip = b.categoria ? `<span class="estante-chip">${escapeHtml(b.categoria)}</span>` : '';
+  document.getElementById('detalheMeta').innerHTML = bookBadgeHtml(b) + estanteChip + categoriaChip;
   document.getElementById('detalheSinopse').textContent =
     (b.sinopse && b.sinopse.trim()) ? b.sinopse : 'Sinopse não cadastrada para este livro.';
 

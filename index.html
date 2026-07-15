@@ -991,15 +991,11 @@
       <div class="field-hint" id="livroQuantidadeHint"></div>
     </div>
     <div class="field">
-      <label>Faixa etária (opcional)</label>
-      <select id="livroFaixaEtaria">
+      <label>Categoria (opcional)</label>
+      <select id="livroCategoria">
         <option value="">Não informada</option>
-        <option value="Livre">Livre (todas as idades)</option>
-        <option value="10 anos">A partir de 10 anos</option>
-        <option value="12 anos">A partir de 12 anos</option>
-        <option value="14 anos">A partir de 14 anos</option>
-        <option value="16 anos">A partir de 16 anos</option>
-        <option value="18 anos">A partir de 18 anos</option>
+        <option value="Infantil">Infantil</option>
+        <option value="Infanto-juvenil">Infanto-juvenil</option>
       </select>
       <div class="field-hint">Aparece no catálogo público, junto com a sinopse.</div>
     </div>
@@ -1258,7 +1254,7 @@ async function loadBooks() {
   state.books = (data || []).map(r => ({
     id: r.id, titulo: r.titulo, autor: r.autor, estante: r.estante, status: r.status, capaUrl: r.capa_url,
     quantidade: r.quantidade ?? 1, quantidadeEmprestada: r.quantidade_emprestada ?? 0, sinopse: r.sinopse || '',
-    faixaEtaria: r.faixa_etaria || '',
+    categoria: r.categoria || '',
   }));
 }
 async function loadUsers() {
@@ -1718,7 +1714,7 @@ function editBook(id) {
   document.getElementById('livroQuantidadeHint').textContent = b.quantidadeEmprestada > 0
     ? `${b.quantidadeEmprestada} cópia${b.quantidadeEmprestada === 1 ? '' : 's'} emprestada${b.quantidadeEmprestada === 1 ? '' : 's'} no momento — a quantidade não pode ficar menor que isso.`
     : '';
-  document.getElementById('livroFaixaEtaria').value = b.faixaEtaria || '';
+  document.getElementById('livroCategoria').value = b.categoria || '';
   document.getElementById('livroCapaUrl').value = b.capaUrl || '';
   document.getElementById('livroSinopse').value = b.sinopse || '';
   updateCapaPreview();
@@ -1750,7 +1746,7 @@ document.getElementById('btnNovoLivro').addEventListener('click', () => {
   document.getElementById('livroQuantidade').value = 1;
   document.getElementById('livroQuantidade').min = 1;
   document.getElementById('livroQuantidadeHint').textContent = '';
-  document.getElementById('livroFaixaEtaria').value = '';
+  document.getElementById('livroCategoria').value = '';
   document.getElementById('livroCapaUrl').value = '';
   document.getElementById('livroSinopse').value = '';
   updateCapaPreview();
@@ -1775,7 +1771,7 @@ document.getElementById('btnSalvarLivro').addEventListener('click', async () => 
   const quantidade = Math.trunc(Number(document.getElementById('livroQuantidade').value));
   const capaUrl = document.getElementById('livroCapaUrl').value.trim() || null;
   const sinopse = document.getElementById('livroSinopse').value.trim() || null;
-  const faixaEtaria = document.getElementById('livroFaixaEtaria').value || null;
+  const categoria = document.getElementById('livroCategoria').value || null;
   if (!titulo) { showToast('Informe o título do livro.'); return; }
   if (!quantidade || quantidade < 1) { showToast('Informe uma quantidade válida (mínimo 1).'); return; }
   const id = document.getElementById('livroId').value;
@@ -1788,9 +1784,9 @@ document.getElementById('btnSalvarLivro').addEventListener('click', async () => 
   let error;
   if (id) {
     const novoStatus = quantidade - existing.quantidadeEmprestada > 0 ? 'disponivel' : 'emprestado';
-    ({ error } = await sb.from('books').update({ titulo, autor, estante, quantidade, status: novoStatus, capa_url: capaUrl, sinopse, faixa_etaria: faixaEtaria }).eq('id', Number(id)));
+    ({ error } = await sb.from('books').update({ titulo, autor, estante, quantidade, status: novoStatus, capa_url: capaUrl, sinopse, categoria }).eq('id', Number(id)));
   } else {
-    ({ error } = await sb.from('books').insert({ titulo, autor, estante, quantidade, status: 'disponivel', capa_url: capaUrl, sinopse, faixa_etaria: faixaEtaria }));
+    ({ error } = await sb.from('books').insert({ titulo, autor, estante, quantidade, status: 'disponivel', capa_url: capaUrl, sinopse, categoria }));
   }
   if (error) { setLoading(false); showToast(friendlyError(error)); return; }
   showToast(id ? 'Livro atualizado.' : 'Livro cadastrado.');
