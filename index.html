@@ -132,6 +132,16 @@
   [data-theme="dark"] .nav-item.active { background: linear-gradient(90deg, rgba(57,135,229,0.20), rgba(57,135,229,0.06)); }
   .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
 
+  .nav-chevron { width: 14px !important; height: 14px !important; margin-left: auto; transition: transform .2s ease; flex-shrink: 0; }
+  .nav-group-toggle[aria-expanded="true"] .nav-chevron { transform: rotate(180deg); }
+  .nav-group-toggle.parent-active { color: var(--series-1); }
+  .nav-group {
+    max-height: 0; overflow: hidden; transition: max-height .22s ease;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .nav-group.expanded { max-height: 140px; }
+  .nav-subitem { padding-left: 34px; font-size: 13px; }
+
   .sidebar-footer { margin-top: auto; display:flex; flex-direction:column; gap: 8px; }
   .sidebar-divider { height: 1px; background: var(--border); margin: 14px 0 10px 0; }
   .util-btn {
@@ -642,14 +652,21 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
       Painel da Biblioteca
     </button>
-    <button class="nav-item" data-view="livros">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      Livros
+    <button class="nav-item nav-group-toggle" id="navCadastroToggle" type="button" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+      Cadastro
+      <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
-    <button class="nav-item" data-view="alunos">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Estudantes
-    </button>
+    <div class="nav-group" id="navGroupCadastro">
+      <button class="nav-item nav-subitem" data-view="livros">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Livros
+      </button>
+      <button class="nav-item nav-subitem" data-view="alunos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Estudantes
+      </button>
+    </div>
     <button class="nav-item" data-view="emprestimos">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57"/><polyline points="21 3 21 9 15 9"/></svg>
       Empréstimos
@@ -1397,14 +1414,27 @@ document.getElementById('btnSetPassword').addEventListener('click', async () => 
 });
 
 /* ---------------- navigation ---------------- */
-document.querySelectorAll('.nav-item').forEach(btn => {
+const CADASTRO_VIEWS = ['livros', 'alunos'];
+document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => { switchView(btn.dataset.view); closeSidebar(); });
+});
+const navCadastroToggle = document.getElementById('navCadastroToggle');
+const navGroupCadastro = document.getElementById('navGroupCadastro');
+navCadastroToggle.addEventListener('click', () => {
+  const expanded = navGroupCadastro.classList.toggle('expanded');
+  navCadastroToggle.setAttribute('aria-expanded', String(expanded));
 });
 function switchView(view) {
   if (view === 'admin' && (!currentUser || currentUser.role !== 'admin')) return;
   currentView = view;
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
+  const isCadastroView = CADASTRO_VIEWS.includes(view);
+  navCadastroToggle.classList.toggle('parent-active', isCadastroView);
+  if (isCadastroView) {
+    navGroupCadastro.classList.add('expanded');
+    navCadastroToggle.setAttribute('aria-expanded', 'true');
+  }
   renderAll();
 }
 
