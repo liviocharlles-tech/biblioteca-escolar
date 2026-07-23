@@ -1093,6 +1093,10 @@
       <div class="combo-list" id="comboLivros"></div>
     </div>
     <div class="field">
+      <label>Turma</label>
+      <select id="emprestimoTurma"></select>
+    </div>
+    <div class="field">
       <label>Estudante</label>
       <select id="emprestimoAlunoId"></select>
     </div>
@@ -2040,13 +2044,32 @@ document.getElementById('btnNovoEmprestimo').addEventListener('click', () => {
   document.getElementById('emprestimoLivroSearch').value = '';
   document.getElementById('emprestimoLivroId').value = '';
   document.getElementById('comboLivros').classList.remove('active');
-  const sel = document.getElementById('emprestimoAlunoId');
-  sel.innerHTML = state.users.map(u => `<option value="${u.id}">${escapeHtml(u.nome)} — ${escapeHtml(u.turma)}</option>`).join('');
+  const turmas = [...new Set(state.users.map(u => u.turma).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
+  const turmaSel = document.getElementById('emprestimoTurma');
+  turmaSel.innerHTML = `<option value="">Selecione a turma...</option>` +
+    turmas.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  atualizarEstudantesPorTurma();
   document.getElementById('emprestimoData').value = todayISO();
   document.getElementById('emprestimoPrazo').value = 14;
   updatePrevisaoTexto();
   openModal('modalEmprestimo');
 });
+function atualizarEstudantesPorTurma() {
+  const turma = document.getElementById('emprestimoTurma').value;
+  const sel = document.getElementById('emprestimoAlunoId');
+  const alunos = turma ? state.users.filter(u => u.turma === turma) : [];
+  if (!turma) {
+    sel.innerHTML = `<option value="">Selecione a turma primeiro...</option>`;
+    sel.disabled = true;
+  } else if (!alunos.length) {
+    sel.innerHTML = `<option value="">Nenhum estudante nesta turma</option>`;
+    sel.disabled = true;
+  } else {
+    sel.innerHTML = alunos.map(u => `<option value="${u.id}">${escapeHtml(u.nome)}</option>`).join('');
+    sel.disabled = false;
+  }
+}
+document.getElementById('emprestimoTurma').addEventListener('change', atualizarEstudantesPorTurma);
 function updatePrevisaoTexto() {
   const data = document.getElementById('emprestimoData').value || todayISO();
   const prazo = Number(document.getElementById('emprestimoPrazo').value || 14);
