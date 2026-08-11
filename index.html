@@ -905,6 +905,20 @@
       <div class="table-wrap"><table id="tableContas" class="table-responsive"></table></div>
     </div>
 
+    <div class="card" id="capasCard" style="margin-top:16px;">
+      <h3 style="margin:0 0 4px 0;">Buscar capas faltantes</h3>
+      <p class="field-hint" style="margin-bottom:14px;">Procura automaticamente na web (por título e autor) a capa dos livros que ainda não têm uma, e preenche direto no acervo. Livros não encontrados ficam para preencher manualmente depois.</p>
+      <div class="modal-actions" style="justify-content:flex-start; gap:10px;">
+        <button class="btn btn-primary" id="btnBuscarCapasFaltantes">🖼️ Buscar e preencher capas faltantes</button>
+      </div>
+      <div id="capasProgressWrap" class="hidden" style="margin-top:14px;">
+        <div style="background:var(--surface-2); border-radius:8px; height:8px; overflow:hidden;">
+          <div id="capasProgressBar" style="background:var(--series-1); height:100%; width:0%; transition:width .2s ease;"></div>
+        </div>
+        <div class="field-hint" id="capasProgressText" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
     <div class="card" id="cartazCard" style="margin-top:16px;">
       <h3 style="margin:0 0 4px 0;">Cartaz do catálogo (QR code)</h3>
       <p class="field-hint" style="margin-bottom:14px;">Gere um cartaz com QR code para colar na estante. Escolha a estante e clique em Gerar.</p>
@@ -2017,6 +2031,50 @@ document.getElementById('btnGerarCartaz').addEventListener('click', () => {
 });
 document.getElementById('btnImprimirCartaz').addEventListener('click', () => {
   window.print();
+});
+
+/* ================= BUSCA EM LOTE: CAPAS FALTANTES ================= */
+async function buscarCapaPorTituloAutor(titulo, autor) {
+  const autorPrincipal = (autor || '').split(',')[0].split('/')[0].trim();
+  const query = `intitle:${titulo}` + (autorPrincipal && !/desconhecid|unknown|n[aã]o informado|autor$/i.test(autorPrincipal) ? `+inauthor:${autorPrincipal}` : '');
+  try {
+    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=1&langRestrict=pt`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const info = data.items && data.items[0] && data.items[0].volumeInfo;
+    if (info && info.imageLinks && info.imageLinks.thumbnail) {
+      return info.imageLinks.thumbnail.replace('http://', 'https://');
+    }
+  } catch (e) {}
+  return null;
+}
+
+document.getElementById('btnBuscarCapasFaltantes').addEventListener('click', async () => {
+  const btn = document.getElementById('btnBuscarCapasFaltantes');
+  const faltando = state.books.filter(b => !b.capaUrl);
+  if (!faltando.length) { showToast('Todos os livros já têm capa cadastrada.'); return; }
+  btn.disabled = true;
+  const wrap = document.getElementById('capasProgressWrap');
+  const bar = document.getElementById('capasProgressBar');
+  const text = document.getElementById('capasProgressText');
+  wrap.classList.remove('hidden');
+  let encontrados = 0;
+  for (let i = 0; i < faltando.length; i++) {
+    const b = faltando[i];
+    text.textContent = `Buscando ${i + 1} de ${faltando.length}: "${b.titulo}"... (${encontrados} encontradas)`;
+    bar.style.width = Math.round(((i) / faltando.length) * 100) + '%';
+    const capaUrl = await buscarCapaPorTituloAutor(b.titulo, b.autor);
+    if (capaUrl) {
+      const { error } = await sb.from('books').update({ capa_url: capaUrl }).eq('id', b.id);
+      if (!error) { encontrados++; b.capaUrl = capaUrl; }
+    }
+    await new Promise(r => setTimeout(r, 250));
+  }
+  bar.style.width = '100%';
+  text.textContent = `Concluído: ${encontrados} de ${faltando.length} capas encontradas e salvas. ${faltando.length - encontrados} livros continuam sem capa (não encontrados na busca) — use "Buscar capa" na edição de cada um para tentar manualmente.`;
+  btn.disabled = false;
+  await loadBooks();
+  renderAll();
 });
 document.getElementById('btnSalvarLivro').addEventListener('click', async () => {
   const titulo = document.getElementById('livroTitulo').value.trim();
