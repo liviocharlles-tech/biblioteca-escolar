@@ -576,7 +576,13 @@
     /* Evita que o iOS Safari dê zoom automático ao focar campos de formulário */
     input, select, textarea { font-size: 16px; }
   }
+  @media print {
+    body * { visibility: hidden; }
+    #cartazPoster, #cartazPoster * { visibility: visible; }
+    #cartazPoster { position: fixed; inset: 0; margin: auto; border: none !important; }
+  }
 </style>
+<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
 </head>
 <body class="app">
 
@@ -897,6 +903,32 @@
     <div class="card">
       <div class="table-wrap"><table id="tableContas" class="table-responsive"></table></div>
     </div>
+
+    <div class="card" id="cartazCard" style="margin-top:16px;">
+      <h3 style="margin:0 0 4px 0;">Cartaz do catálogo (QR code)</h3>
+      <p class="field-hint" style="margin-bottom:14px;">Gere um cartaz com QR code para colar na estante. Escolha a estante e clique em Gerar.</p>
+      <div class="field" style="max-width:280px;">
+        <label>Estante</label>
+        <select id="cartazEstante">
+          <option value="1">Estante 1</option>
+          <option value="2">Estante 2</option>
+          <option value="3">Estante 3</option>
+          <option value="4">Estante 4</option>
+        </select>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start; gap:10px;">
+        <button class="btn btn-primary" id="btnGerarCartaz">Gerar cartaz</button>
+        <button class="btn hidden" id="btnImprimirCartaz">🖨️ Imprimir</button>
+      </div>
+      <div id="cartazPreviewWrap" class="hidden" style="margin-top:18px;">
+        <div id="cartazPoster" style="max-width:360px; margin:0 auto; text-align:center; border:1px solid var(--border); border-radius:12px; padding:28px 20px; background:#fff;">
+          <div style="font-size:13px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#52514e;">Biblioteca Maria Carolina de Jesus</div>
+          <h2 id="cartazEstanteTitulo" style="margin:6px 0 18px 0; font-size:24px; color:#0b0b0b;">Estante 1</h2>
+          <img id="cartazQrImg" alt="QR code do catálogo" style="width:220px; height:220px; display:block; margin:0 auto;">
+          <p style="margin:18px 0 0 0; font-size:14px; color:#0b0b0b;">Aponte a câmera do celular para ver os livros desta estante</p>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ===================== AJUDA ===================== -->
@@ -1001,6 +1033,14 @@
       <input type="text" id="livroAutor" placeholder="Ex: Antoine de Saint-Exupéry">
     </div>
     <div class="field">
+      <label>ISBN (opcional)</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="livroIsbn" placeholder="Ex: 978-85-359-0277-5" style="flex:1;">
+        <button type="button" class="btn" id="btnEscanearIsbn" style="white-space:nowrap;">📷 Escanear</button>
+      </div>
+      <div class="field-hint">Escaneie o código de barras (ISBN) para preencher título, autor e capa automaticamente.</div>
+    </div>
+    <div class="field">
       <label>Estante</label>
       <select id="livroEstante">
         <option value="1">Estante 1</option>
@@ -1039,6 +1079,24 @@
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modalLivro')">Cancelar</button>
       <button class="btn btn-primary" id="btnSalvarLivro">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalScanner">
+  <div class="modal" style="max-width:420px;">
+    <h3>Escanear ISBN</h3>
+    <div id="scannerVideoWrap" style="position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:4/3;">
+      <video id="scannerVideo" style="width:100%; height:100%; object-fit:cover; display:block;" playsinline autoplay muted></video>
+      <div style="position:absolute; inset:14%; border:3px solid rgba(255,255,255,.55); border-radius:8px; pointer-events:none;"></div>
+    </div>
+    <div class="field-hint" id="scannerStatus" style="text-align:center; margin-top:10px;">Aponte a câmera para o código de barras do livro...</div>
+    <div class="modal-actions" style="justify-content:space-between; align-items:center;">
+      <button class="btn" id="btnCancelarScanner">Cancelar</button>
+      <label class="btn" style="cursor:pointer; margin:0;">
+        📁 Enviar / tirar foto
+        <input type="file" id="scannerFileInput" accept="image/*" capture="environment" style="display:none;">
+      </label>
     </div>
   </div>
 </div>
@@ -1749,6 +1807,7 @@ function editBook(id) {
   document.getElementById('livroId').value = b.id;
   document.getElementById('livroTitulo').value = b.titulo;
   document.getElementById('livroAutor').value = b.autor;
+  document.getElementById('livroIsbn').value = b.isbn || '';
   document.getElementById('livroEstante').value = b.estante;
   document.getElementById('livroQuantidade').value = b.quantidade ?? 1;
   document.getElementById('livroQuantidade').min = String(b.quantidadeEmprestada || 0) === '0' ? 1 : b.quantidadeEmprestada;
@@ -1783,6 +1842,7 @@ document.getElementById('btnNovoLivro').addEventListener('click', () => {
   document.getElementById('livroId').value = '';
   document.getElementById('livroTitulo').value = '';
   document.getElementById('livroAutor').value = '';
+  document.getElementById('livroIsbn').value = '';
   document.getElementById('livroEstante').value = '1';
   document.getElementById('livroQuantidade').value = 1;
   document.getElementById('livroQuantidade').min = 1;
@@ -1805,9 +1865,113 @@ document.getElementById('livroCapaUrl').addEventListener('input', updateCapaPrev
 document.getElementById('capaPreviewImg').addEventListener('error', () => {
   document.getElementById('capaPreviewWrap').classList.add('hidden');
 });
+
+/* ================= SCANNER DE ISBN ================= */
+let zxingReader = null;
+function setScannerStatus(msg) {
+  const el = document.getElementById('scannerStatus');
+  if (el) el.textContent = msg;
+}
+async function abrirScanner() {
+  setScannerStatus('Aponte a câmera para o código de barras do livro...');
+  openModal('modalScanner');
+  if (!window.ZXing) { setScannerStatus('Leitor não carregou. Use "Enviar / tirar foto".'); return; }
+  try {
+    if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+    let deviceId;
+    try {
+      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+      const back = devices.find(d => /back|traseira|rear|environment/i.test(d.label));
+      deviceId = (back || devices[devices.length - 1] || {}).deviceId;
+    } catch (e) {}
+    zxingReader.decodeFromVideoDevice(deviceId, 'scannerVideo', (result, err) => {
+      if (result) handleIsbnDetectado(result.getText());
+    });
+  } catch (e) {
+    setScannerStatus('Não foi possível acessar a câmera. Use "Enviar / tirar foto".');
+  }
+}
+function fecharScanner() {
+  if (zxingReader) { try { zxingReader.reset(); } catch (e) {} }
+  closeModal('modalScanner');
+}
+document.getElementById('btnEscanearIsbn').addEventListener('click', abrirScanner);
+document.getElementById('btnCancelarScanner').addEventListener('click', fecharScanner);
+
+document.getElementById('scannerFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!window.ZXing) { setScannerStatus('Leitor não carregou. Digite o ISBN manualmente.'); return; }
+  setScannerStatus('Lendo imagem...');
+  const url = URL.createObjectURL(file);
+  const img = document.createElement('img');
+  img.src = url;
+  try {
+    await img.decode();
+    if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+    const result = await zxingReader.decodeFromImageElement(img);
+    handleIsbnDetectado(result.getText());
+  } catch (err) {
+    setScannerStatus('Código não identificado nessa foto. Tente de novo ou digite o ISBN manualmente.');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+});
+
+function handleIsbnDetectado(codigo) {
+  const digits = (codigo || '').replace(/[^0-9Xx]/g, '');
+  if (!digits) return;
+  document.getElementById('livroIsbn').value = digits;
+  fecharScanner();
+  showToast('Código lido: ' + digits);
+  buscarDadosPorIsbn(digits);
+}
+
+async function buscarDadosPorIsbn(isbn) {
+  try {
+    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const info = data.items && data.items[0] && data.items[0].volumeInfo;
+    if (!info) { showToast('Código lido, mas não encontramos dados desse livro. Preencha manualmente.'); return; }
+    if (!document.getElementById('livroTitulo').value.trim() && info.title) {
+      document.getElementById('livroTitulo').value = info.title;
+    }
+    if (!document.getElementById('livroAutor').value.trim() && info.authors && info.authors.length) {
+      document.getElementById('livroAutor').value = info.authors.join(', ');
+    }
+    if (!document.getElementById('livroSinopse').value.trim() && info.description) {
+      document.getElementById('livroSinopse').value = info.description;
+    }
+    if (!document.getElementById('livroCapaUrl').value.trim() && info.imageLinks && info.imageLinks.thumbnail) {
+      document.getElementById('livroCapaUrl').value = info.imageLinks.thumbnail.replace('http://', 'https://');
+    }
+    updateCapaPreview();
+    showToast('Dados do livro preenchidos automaticamente.');
+  } catch (e) {
+    /* busca automática é só um bônus — falha silenciosamente */
+  }
+}
+
+/* ================= CARTAZ DO CATÁLOGO (QR CODE) ================= */
+const CATALOGO_BASE_URL = 'https://liviocharlles-tech.github.io/biblioteca-escolar/catalogo.html';
+document.getElementById('btnGerarCartaz').addEventListener('click', () => {
+  const estante = document.getElementById('cartazEstante').value;
+  const url = `${CATALOGO_BASE_URL}?estante=${estante}`;
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=440x440&margin=10&data=${encodeURIComponent(url)}`;
+  document.getElementById('cartazEstanteTitulo').textContent = 'Estante ' + estante;
+  document.getElementById('cartazQrImg').src = qrImgUrl;
+  document.getElementById('cartazPreviewWrap').classList.remove('hidden');
+  document.getElementById('btnImprimirCartaz').classList.remove('hidden');
+});
+document.getElementById('btnImprimirCartaz').addEventListener('click', () => {
+  window.print();
+});
 document.getElementById('btnSalvarLivro').addEventListener('click', async () => {
   const titulo = document.getElementById('livroTitulo').value.trim();
   const autor = document.getElementById('livroAutor').value.trim() || 'Não informado';
+  const isbn = document.getElementById('livroIsbn').value.trim() || null;
   const estante = Number(document.getElementById('livroEstante').value);
   const quantidade = Math.trunc(Number(document.getElementById('livroQuantidade').value));
   const capaUrl = document.getElementById('livroCapaUrl').value.trim() || null;
@@ -1825,9 +1989,9 @@ document.getElementById('btnSalvarLivro').addEventListener('click', async () => 
   let error;
   if (id) {
     const novoStatus = quantidade - existing.quantidadeEmprestada > 0 ? 'disponivel' : 'emprestado';
-    ({ error } = await sb.from('books').update({ titulo, autor, estante, quantidade, status: novoStatus, capa_url: capaUrl, sinopse, categoria }).eq('id', Number(id)));
+    ({ error } = await sb.from('books').update({ titulo, autor, isbn, estante, quantidade, status: novoStatus, capa_url: capaUrl, sinopse, categoria }).eq('id', Number(id)));
   } else {
-    ({ error } = await sb.from('books').insert({ titulo, autor, estante, quantidade, status: 'disponivel', capa_url: capaUrl, sinopse, categoria }));
+    ({ error } = await sb.from('books').insert({ titulo, autor, isbn, estante, quantidade, status: 'disponivel', capa_url: capaUrl, sinopse, categoria }));
   }
   if (error) { setLoading(false); showToast(friendlyError(error)); return; }
   showToast(id ? 'Livro atualizado.' : 'Livro cadastrado.');
