@@ -1928,30 +1928,67 @@ function handleIsbnDetectado(codigo) {
   buscarDadosPorIsbn(digits);
 }
 
-async function buscarDadosPorIsbn(isbn) {
-  try {
-    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const info = data.items && data.items[0] && data.items[0].volumeInfo;
-    if (!info) { showToast('Código lido, mas não encontramos dados desse livro. Preencha manualmente.'); return; }
-    if (!document.getElementById('livroTitulo').value.trim() && info.title) {
-      document.getElementById('livroTitulo').value = info.title;
-    }
-    if (!document.getElementById('livroAutor').value.trim() && info.authors && info.authors.length) {
-      document.getElementById('livroAutor').value = info.authors.join(', ');
-    }
-    if (!document.getElementById('livroSinopse').value.trim() && info.description) {
-      document.getElementById('livroSinopse').value = info.description;
-    }
-    if (!document.getElementById('livroCapaUrl').value.trim() && info.imageLinks && info.imageLinks.thumbnail) {
-      document.getElementById('livroCapaUrl').value = info.imageLinks.thumbnail.replace('http://', 'https://');
-    }
-    updateCapaPreview();
-    showToast('Dados do livro preenchidos automaticamente.');
-  } catch (e) {
-    /* busca automática é só um bônus — falha silenciosamente */
+function preencherCamposLivro(campos) {
+  let algumCampo = false;
+  if (!document.getElementById('livroTitulo').value.trim() && campos.titulo) {
+    document.getElementById('livroTitulo').value = campos.titulo;
+    algumCampo = true;
   }
+  if (!document.getElementById('livroAutor').value.trim() && campos.autor) {
+    document.getElementById('livroAutor').value = campos.autor;
+    algumCampo = true;
+  }
+  if (!document.getElementById('livroSinopse').value.trim() && campos.sinopse) {
+    document.getElementById('livroSinopse').value = campos.sinopse;
+    algumCampo = true;
+  }
+  if (!document.getElementById('livroCapaUrl').value.trim() && campos.capaUrl) {
+    document.getElementById('livroCapaUrl').value = campos.capaUrl;
+    algumCampo = true;
+  }
+  updateCapaPreview();
+  return algumCampo;
+}
+
+async function buscarNaBrasilApi(isbn) {
+  const resp = await fetch(`https://brasilapi.com.br/api/isbn/v1/${isbn}`);
+  if (!resp.ok) return null;
+  const d = await resp.json();
+  if (!d || !d.title) return null;
+  return {
+    titulo: d.title || '',
+    autor: Array.isArray(d.authors) && d.authors.length ? d.authors.join(', ') : '',
+    sinopse: d.synopsis || '',
+    capaUrl: d.cover_url || ''
+  };
+}
+
+async function buscarNoGoogleBooks(isbn) {
+  const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  const info = data.items && data.items[0] && data.items[0].volumeInfo;
+  if (!info) return null;
+  return {
+    titulo: info.title || '',
+    autor: Array.isArray(info.authors) && info.authors.length ? info.authors.join(', ') : '',
+    sinopse: info.description || '',
+    capaUrl: info.imageLinks && info.imageLinks.thumbnail ? info.imageLinks.thumbnail.replace('http://', 'https://') : ''
+  };
+}
+
+async function buscarDadosPorIsbn(isbn) {
+  let campos = null;
+  try { campos = await buscarNaBrasilApi(isbn); } catch (e) {}
+  if (!campos) {
+    try { campos = await buscarNoGoogleBooks(isbn); } catch (e) {}
+  }
+  if (!campos) {
+    showToast('Código lido, mas não encontramos dados desse livro. Preencha manualmente.');
+    return;
+  }
+  const preencheu = preencherCamposLivro(campos);
+  showToast(preencheu ? 'Dados do livro preenchidos automaticamente.' : 'Código lido: ' + isbn);
 }
 
 /* ================= CARTAZ DO CATÁLOGO (QR CODE) ================= */
