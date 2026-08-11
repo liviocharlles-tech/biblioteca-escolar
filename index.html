@@ -1068,8 +1068,11 @@
     </div>
     <div class="field">
       <label>URL da capa (opcional)</label>
-      <input type="url" id="livroCapaUrl" placeholder="Cole aqui o link de uma imagem da capa">
-      <div class="field-hint">Dica: procure o livro no Google Imagens, clique com o botão direito na capa e escolha "Copiar endereço da imagem".</div>
+      <div style="display:flex; gap:8px;">
+        <input type="url" id="livroCapaUrl" placeholder="Cole aqui o link de uma imagem da capa" style="flex:1;">
+        <button type="button" class="btn" id="btnBuscarCapaWeb" style="white-space:nowrap;">🔍 Buscar capa</button>
+      </div>
+      <div class="field-hint">Clique em "Buscar capa" para abrir o Google Imagens já com o título e autor. Na imagem desejada, clique com o botão direito e escolha "Copiar endereço da imagem", depois cole aqui.</div>
     </div>
     <div class="capa-preview-wrap hidden" id="capaPreviewWrap">
       <img id="capaPreviewImg" class="capa-preview" alt="Pré-visualização da capa">
@@ -1865,6 +1868,13 @@ function updateCapaPreview() {
   wrap.classList.remove('hidden');
 }
 document.getElementById('livroCapaUrl').addEventListener('input', updateCapaPreview);
+document.getElementById('btnBuscarCapaWeb').addEventListener('click', () => {
+  const titulo = document.getElementById('livroTitulo').value.trim();
+  const autor = document.getElementById('livroAutor').value.trim();
+  const termos = ['capa livro', titulo, autor].filter(Boolean).join(' ');
+  const url = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(termos);
+  window.open(url, '_blank', 'noopener');
+});
 document.getElementById('capaPreviewImg').addEventListener('error', () => {
   document.getElementById('capaPreviewWrap').classList.add('hidden');
 });
