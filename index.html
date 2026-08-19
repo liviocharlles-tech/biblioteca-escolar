@@ -1081,12 +1081,18 @@
       <div class="field-hint">Aparece no catálogo público, junto com a sinopse.</div>
     </div>
     <div class="field">
-      <label>URL da capa (opcional)</label>
+      <label>Capa do livro (opcional)</label>
       <div style="display:flex; gap:8px;">
         <input type="url" id="livroCapaUrl" placeholder="Cole aqui o link de uma imagem da capa" style="flex:1;">
         <button type="button" class="btn" id="btnBuscarCapaWeb" style="white-space:nowrap;">🔍 Buscar capa</button>
       </div>
-      <div class="field-hint">Clique em "Buscar capa" para abrir o Google Imagens já com o título e autor. Na imagem desejada, clique com o botão direito e escolha "Copiar endereço da imagem", depois cole aqui.</div>
+      <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+        <label class="btn" style="cursor:pointer; margin:0;" id="btnEnviarFotoCapaLabel">
+          📷 Enviar / tirar foto da capa
+          <input type="file" id="capaFileInput" accept="image/*" capture="environment" style="display:none;">
+        </label>
+      </div>
+      <div class="field-hint" id="capaUploadStatus">Cole o link de uma imagem, busque no Google Imagens, ou envie/tire uma foto da capa direto do celular.</div>
     </div>
     <div class="capa-preview-wrap hidden" id="capaPreviewWrap">
       <img id="capaPreviewImg" class="capa-preview" alt="Pré-visualização da capa">
@@ -1837,6 +1843,7 @@ function editBook(id) {
   document.getElementById('livroCategoria').value = b.categoria || '';
   document.getElementById('livroCapaUrl').value = b.capaUrl || '';
   document.getElementById('livroSinopse').value = b.sinopse || '';
+  document.getElementById('capaUploadStatus').textContent = 'Cole o link de uma imagem, busque no Google Imagens, ou envie/tire uma foto da capa direto do celular.';
   updateCapaPreview();
   openModal('modalLivro');
 }
@@ -1870,6 +1877,7 @@ document.getElementById('btnNovoLivro').addEventListener('click', () => {
   document.getElementById('livroCategoria').value = '';
   document.getElementById('livroCapaUrl').value = '';
   document.getElementById('livroSinopse').value = '';
+  document.getElementById('capaUploadStatus').textContent = 'Cole o link de uma imagem, busque no Google Imagens, ou envie/tire uma foto da capa direto do celular.';
   updateCapaPreview();
   openModal('modalLivro');
 });
@@ -1891,6 +1899,27 @@ document.getElementById('btnBuscarCapaWeb').addEventListener('click', () => {
 });
 document.getElementById('capaPreviewImg').addEventListener('error', () => {
   document.getElementById('capaPreviewWrap').classList.add('hidden');
+});
+
+document.getElementById('capaFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const status = document.getElementById('capaUploadStatus');
+  status.textContent = 'Enviando foto...';
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const nomeArquivo = `capa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: uploadError } = await sb.storage.from('capas-livros').upload(nomeArquivo, file, { upsert: true });
+    if (uploadError) throw uploadError;
+    const { data: pub } = sb.storage.from('capas-livros').getPublicUrl(nomeArquivo);
+    document.getElementById('livroCapaUrl').value = pub.publicUrl;
+    updateCapaPreview();
+    status.textContent = 'Foto da capa enviada com sucesso.';
+  } catch (err) {
+    status.textContent = 'Não foi possível enviar a foto. Tente novamente.';
+    showToast(friendlyError(err));
+  }
 });
 
 /* ================= SCANNER DE ISBN ================= */
