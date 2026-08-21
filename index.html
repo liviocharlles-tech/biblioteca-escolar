@@ -855,6 +855,14 @@
     <div class="card">
       <div class="table-wrap"><table id="tableEmprestimos" class="table-responsive"></table></div>
     </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3 style="margin:0 0 4px 0;">Limpar registros de empréstimos</h3>
+      <p class="field-hint" style="margin-bottom:14px;">Apaga definitivamente TODOS os registros de empréstimo (ativos, atrasados e devolvidos) do histórico. Os livros e estudantes cadastrados não são afetados.</p>
+      <div class="modal-actions" style="justify-content:flex-start;">
+        <button class="btn btn-danger" id="btnLimparEmprestimos">🗑️ Limpar todos os registros de empréstimos</button>
+      </div>
+    </div>
   </section>
 
   <!-- ===================== RELATORIOS ===================== -->
@@ -2317,12 +2325,53 @@ function renderEmprestimos() {
         <td data-label="Empréstimo">${fmtDate(l.dataEmprestimo)}</td>
         <td data-label="Previsão">${fmtDate(l.dataPrevista)}</td>
         <td data-label="Status">${badge}</td>
-        <td class="actions-cell">${status !== 'devolvido' ? `<button class="btn btn-sm" onclick="returnLoan(${l.id})">Devolver</button>` : ''}</td>
+        <td class="actions-cell">
+          ${status !== 'devolvido' ? `<button class="btn btn-sm" onclick="returnLoan(${l.id})">Devolver</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="confirmarExcluirEmprestimo(${l.id})">Excluir</button>
+        </td>
       </tr>`;
     }).join('')}</tbody>`;
 }
+document.getElementById('btnLimparEmprestimos').addEventListener('click', () => {
+  const total = state.loans.length;
+  if (!total) { showToast('Não há registros de empréstimo para limpar.'); return; }
+  askConfirm(
+    '⚠️ Atenção: essa ação não pode ser desfeita',
+    `Você está prestes a apagar definitivamente TODOS os ${total} registros de empréstimo (ativos, atrasados e devolvidos). Os livros voltarão a ficar disponíveis no sistema. Tem certeza que deseja continuar?`,
+    async () => {
+      setLoading(true);
+      const { error: e1 } = await sb.from('loans').delete().neq('id', -1);
+      if (e1) { setLoading(false); showToast(friendlyError(e1)); return; }
+      const { error: e2 } = await sb.from('books').update({ quantidade_emprestada: 0, status: 'disponivel' }).neq('id', -1);
+      setLoading(false);
+      if (e2) { showToast(friendlyError(e2)); }
+      showToast('Todos os registros de empréstimo foram apagados.');
+      await Promise.all([loadBooks(), loadLoans()]);
+      renderAll();
+    }
+  );
+});
 ['emprestimosFilter','emprestimosSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderEmprestimos));
 
+function confirmarExcluirEmprestimo(id) {
+  const loan = state.loans.find(l => l.id === id);
+  if (!loan) return;
+  const b = bookById(loan.bookId), u = userById(loan.userId);
+  askConfirm(
+    '⚠️ Atenção: excluir empréstimo',
+    `Isso vai apagar definitivamente o registro do empréstimo de "${b ? b.titulo : 'livro removido'}" para ${u ? u.nome : 'estudante removido'}. Essa ação não pode ser desfeita. Deseja continuar?`,
+    () => excluirEmprestimo(id)
+  );
+}
+async function excluirEmprestimo(id) {
+  setLoading(true);
+  const { error } = await sb.from('loans').delete().eq('id', id);
+  setLoading(false);
+  if (error) { showToast(friendlyError(error)); return; }
+  showToast('Registro de empréstimo excluído.');
+  await loadLoans();
+  renderAll();
+}
 async function returnLoan(id) {
   const loan = state.loans.find(l => l.id === id);
   if (!loan) return;
