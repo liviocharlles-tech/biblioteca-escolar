@@ -1044,7 +1044,7 @@
       <p>Visível apenas para contas com papel <strong>Administrador</strong>. É aqui que se gerencia quem tem acesso ao painel.</p>
       <ol>
         <li><strong>Convidar usuário:</strong> informe nome e e-mail da pessoa e escolha se ela é Administrador. Ela recebe um e-mail para definir a própria senha — ninguém, nem o administrador, vê ou digita a senha de outra pessoa.</li>
-        <li><strong>Administrador x permissões:</strong> contas Administrador têm acesso total, incluindo esta aba. Para as demais, marque exatamente o que a pessoa pode ver e fazer (livros, estudantes, empréstimos, relatórios) usando as caixinhas de permissão — use os botões de predefinição (Padrão, Professor, Coordenação) como ponto de partida e ajuste como preferir.</li>
+        <li><strong>Tipo de acesso:</strong> escolha Administrador (acesso total), Padrão, Professor ou Coordenação/Apoio Pedagógico — cada um já preenche as permissões de livros, estudantes, empréstimos e relatórios de forma adequada. Você pode ajustar qualquer caixinha manualmente depois; o sistema passa a mostrar "Personalizado" quando isso acontece.</li>
         <li><strong>Bloquear ou excluir:</strong> uma conta bloqueada não consegue mais entrar, mas fica registrada; excluir remove o acesso definitivamente.</li>
       </ol>
     </div>
@@ -1263,20 +1263,18 @@
       <span class="field-hint" id="contaEmailHint">A pessoa recebe um e-mail de convite e define a própria senha. O e-mail não pode ser alterado depois de criado.</span>
     </div>
     <div class="field">
-      <label>Papel</label>
+      <label>Tipo de acesso</label>
       <select id="contaRole">
-        <option value="padrao">Não administrador</option>
         <option value="admin">Administrador</option>
+        <option value="padrao" selected>Padrão (acesso completo)</option>
+        <option value="professor">Professor</option>
+        <option value="coordenacao">Coordenação / Apoio Pedagógico</option>
+        <option value="personalizado">Personalizado</option>
       </select>
-      <span class="field-hint">Administrador tem acesso total, incluindo esta aba de Administração. Para os demais, marque as permissões abaixo.</span>
+      <span class="field-hint">Administrador tem acesso total, incluindo esta aba. As demais opções preenchem as permissões abaixo automaticamente — você ainda pode ajustar cada caixinha manualmente.</span>
     </div>
     <div class="field" id="contaPermissoesWrap">
       <label>Permissões</label>
-      <div class="modal-actions" style="justify-content:flex-start; gap:6px; margin:0 0 10px 0;">
-        <button type="button" class="btn btn-sm" data-preset="padrao">Predefinição: Padrão (tudo)</button>
-        <button type="button" class="btn btn-sm" data-preset="professor">Predefinição: Professor</button>
-        <button type="button" class="btn btn-sm" data-preset="coordenacao">Predefinição: Coordenação</button>
-      </div>
       <div class="permissoes-grid">
         <label class="permissao-item"><input type="checkbox" id="permLivrosVisualizar"> Visualizar acervo de livros</label>
         <label class="permissao-item"><input type="checkbox" id="permLivrosGerenciar"> Cadastrar / editar / excluir livros</label>
@@ -1360,7 +1358,6 @@ const SHELF_COLOR = ['var(--series-1)','var(--series-2)','var(--series-3)','var(
 const state = { books: [], users: [], loans: [], profiles: [] };
 let currentUser = null; // { id, nome, role, ativo, email }
 let currentView = 'dashboard';
-let viewHistory = [];
 let livrosPage = 1;
 const LIVROS_PAGE_SIZE = 25;
 let alunosPage = 1;
@@ -1628,6 +1625,13 @@ navCadastroToggle.addEventListener('click', () => {
   const expanded = navGroupCadastro.classList.toggle('expanded');
   navCadastroToggle.setAttribute('aria-expanded', String(expanded));
 });
+function homeView() {
+  const podeDashboard = currentUser && (currentUser.role === 'admin' || temPermissao('estudantesVisualizar') || temPermissao('relatoriosVisualizar') || temPermissao('livrosGerenciar'));
+  if (podeDashboard) return 'dashboard';
+  if (temPermissao('livrosVisualizar')) return 'livros';
+  if (temPermissao('emprestimosVisualizar')) return 'emprestimos';
+  return 'dashboard';
+}
 function switchView(view) {
   if (view === 'admin' && (!currentUser || currentUser.role !== 'admin')) return;
   if (view === 'livros' && !temPermissao('livrosVisualizar')) return;
@@ -1636,11 +1640,10 @@ function switchView(view) {
   if (view === 'emprestimos' && !temPermissao('emprestimosVisualizar')) return;
   if (view === 'dashboard' && currentUser && currentUser.role !== 'admin' && !temPermissao('estudantesVisualizar') && !temPermissao('relatoriosVisualizar') && !temPermissao('livrosGerenciar')) return;
   if (view === currentView) return;
-  if (currentView) viewHistory.push(currentView);
   currentView = view;
   document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
-  document.querySelectorAll('.btn-voltar').forEach(b => b.classList.toggle('hidden', viewHistory.length === 0));
+  document.querySelectorAll('.btn-voltar').forEach(b => b.classList.toggle('hidden', view === homeView()));
   const isCadastroView = CADASTRO_VIEWS.includes(view);
   navCadastroToggle.classList.toggle('parent-active', isCadastroView);
   if (isCadastroView) {
@@ -1650,12 +1653,7 @@ function switchView(view) {
   renderAll();
 }
 function voltarView() {
-  const alvo = viewHistory.pop();
-  if (!alvo) return;
-  const historicoAntes = viewHistory.slice();
-  switchView(alvo);
-  viewHistory = historicoAntes;
-  document.querySelectorAll('.btn-voltar').forEach(b => b.classList.toggle('hidden', viewHistory.length === 0));
+  switchView(homeView());
 }
 
 /* ---------------- menu mobile (gaveta lateral) ---------------- */
@@ -2738,13 +2736,29 @@ function colunaParaPermissoes(col) {
     emprestimosGerenciar: !!col.emprestimos_gerenciar, relatoriosVisualizar: !!col.relatorios_visualizar,
   };
 }
+function permsIguaisPreset(perms, preset) {
+  return PERMISSAO_KEYS.every(key => !!perms[key] === !!preset[key]);
+}
+function detectarPreset(perms) {
+  if (permsIguaisPreset(perms, PERMISSOES_PRESETS.professor)) return 'professor';
+  if (permsIguaisPreset(perms, PERMISSOES_PRESETS.padrao)) return 'padrao';
+  return 'personalizado';
+}
 function atualizarVisibilidadePermissoesWrap() {
   const isAdminSelecionado = document.getElementById('contaRole').value === 'admin';
   document.getElementById('contaPermissoesWrap').classList.toggle('hidden', isAdminSelecionado);
 }
-document.getElementById('contaRole').addEventListener('change', atualizarVisibilidadePermissoesWrap);
-document.querySelectorAll('[data-preset]').forEach(btn => {
-  btn.addEventListener('click', () => aplicarPermissoesNosCheckboxes(PERMISSOES_PRESETS[btn.dataset.preset]));
+document.getElementById('contaRole').addEventListener('change', () => {
+  const val = document.getElementById('contaRole').value;
+  if (PERMISSOES_PRESETS[val]) aplicarPermissoesNosCheckboxes(PERMISSOES_PRESETS[val]);
+  atualizarVisibilidadePermissoesWrap();
+});
+document.querySelectorAll('.permissao-item input[type="checkbox"]').forEach(chk => {
+  chk.addEventListener('change', () => {
+    const sel = document.getElementById('contaRole');
+    if (sel.value === 'admin') return;
+    sel.value = detectarPreset(lerPermissoesDosCheckboxes());
+  });
 });
 function editConta(id) {
   const a = profileById(id);
@@ -2755,9 +2769,10 @@ function editConta(id) {
   document.getElementById('contaEmail').value = a.email || '';
   document.getElementById('contaEmail').disabled = true;
   document.getElementById('contaEmailHint').textContent = 'O e-mail não pode ser alterado depois de criado.';
-  document.getElementById('contaRole').value = a.role === 'admin' ? 'admin' : 'padrao';
+  const perms = colunaParaPermissoes(a.permissoes);
+  aplicarPermissoesNosCheckboxes(perms);
+  document.getElementById('contaRole').value = a.role === 'admin' ? 'admin' : detectarPreset(perms);
   document.getElementById('contaAtiva').value = a.ativo ? 'sim' : 'nao';
-  aplicarPermissoesNosCheckboxes(colunaParaPermissoes(a.permissoes) || PERMISSOES_PRESETS.padrao);
   atualizarVisibilidadePermissoesWrap();
   openModal('modalConta');
 }
@@ -2800,7 +2815,8 @@ document.getElementById('btnNovaConta').addEventListener('click', () => {
 document.getElementById('btnSalvarConta').addEventListener('click', async () => {
   const nome = document.getElementById('contaNome').value.trim();
   const email = document.getElementById('contaEmail').value.trim();
-  const role = document.getElementById('contaRole').value;
+  const roleSelecionado = document.getElementById('contaRole').value;
+  const role = roleSelecionado === 'admin' ? 'admin' : 'padrao';
   const permissoesObj = lerPermissoesDosCheckboxes();
   const permissoesColuna = permissoesParaColuna(permissoesObj);
   const ativo = document.getElementById('contaAtiva').value === 'sim';
