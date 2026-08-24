@@ -172,6 +172,16 @@
     letter-spacing: -0.015em; margin: 0 0 3px 0; color: var(--text-primary);
   }
   .topbar p { margin: 0; font-size: 13px; color: var(--text-secondary); }
+  .btn-voltar {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-secondary); font-size: 13px; font-weight: 600;
+    padding: 6px 2px; margin: 0 0 10px 0; border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-voltar:hover { color: var(--text-primary); }
+  .btn-voltar svg { width: 16px; height: 16px; }
+  .btn-voltar.hidden { display: none; }
   .theme-toggle {
     width: 34px; height: 34px; border-radius: 50%;
     border: 1px solid var(--border); background: var(--surface-1);
@@ -541,36 +551,30 @@
   }
 
   /* ---------- Estudantes: submenu de turmas ---------- */
-  .estudantes-layout { display: grid; grid-template-columns: 210px 1fr; gap: 16px; align-items: start; }
-  .estudantes-layout > .turma-menu, .estudantes-layout > .estudantes-content { min-width: 0; }
+  .estudantes-layout { display: flex; flex-direction: column; gap: 16px; }
   .turma-menu {
-    background: var(--surface-1); border: 1px solid var(--border);
-    border-radius: var(--card-radius); padding: 8px;
-    display: flex; flex-direction: column; gap: 2px;
-    max-height: 560px; overflow-y: auto;
-    box-shadow: var(--shadow-xs);
+    display: flex; flex-wrap: wrap; gap: 10px;
   }
   .turma-menu-item {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 8px 10px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
-    color: var(--text-secondary); cursor: pointer; border: none; background: none;
-    text-align: left; width: 100%; white-space: nowrap;
-    transition: background .15s ease, color .15s ease;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+    padding: 12px 16px; border-radius: var(--card-radius); font-size: 13px; font-weight: 600;
+    color: var(--text-primary); cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-1);
+    text-align: left; min-width: 108px; box-shadow: var(--shadow-xs);
+    transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
   }
-  .turma-menu-item:hover { background: var(--page-plane); color: var(--text-primary); }
-  .turma-menu-item.active { background: var(--series-1); color: #fff; }
+  .turma-menu-item:hover { border-color: var(--baseline); transform: translateY(-1px); }
+  .turma-menu-item.active { background: var(--series-1); color: #fff; border-color: var(--series-1); }
   .turma-menu-item .count {
-    font-size: 11px; padding: 1px 7px; border-radius: var(--radius-pill);
-    background: var(--grid); color: var(--text-secondary); flex-shrink: 0;
+    font-family: var(--font-serif); font-size: 21px; font-weight: 600;
+    color: var(--text-primary);
   }
-  .turma-menu-item.active .count { background: rgba(255,255,255,0.25); color: #fff; }
+  .turma-menu-item.active .count { color: #fff; }
+  .turma-menu-item .count-label { font-size: 10.5px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; }
+  .turma-menu-item.active .count-label { color: rgba(255,255,255,0.85); }
   @media (max-width: 900px) {
-    .estudantes-layout { grid-template-columns: 1fr; }
-    .turma-menu {
-      flex-direction: row; overflow-x: auto; overflow-y: visible;
-      max-height: none; gap: 6px;
-    }
-    .turma-menu-item { flex-shrink: 0; width: auto; }
+    .turma-menu { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+    .turma-menu-item { flex-shrink: 0; }
   }
   @media (max-width: 900px) {
     /* Evita que o iOS Safari dê zoom automático ao focar campos de formulário */
@@ -590,6 +594,15 @@
     -webkit-tap-highlight-color: transparent;
   }
   .password-toggle-btn:hover { opacity: .9; background: var(--surface-2); }
+  .permissoes-grid { display: flex; flex-direction: column; gap: 8px; }
+  .permissao-item {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 13.5px; color: var(--text-primary); cursor: pointer;
+    padding: 7px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .permissao-item input { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  #contaPermissoesWrap.hidden { display: none; }
 </style>
 <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
 </head>
@@ -1030,8 +1043,8 @@
       </div>
       <p>Visível apenas para contas com papel <strong>Administrador</strong>. É aqui que se gerencia quem tem acesso ao painel.</p>
       <ol>
-        <li><strong>Convidar usuário:</strong> informe nome e e-mail da pessoa e escolha o papel (Administrador ou Padrão). Ela recebe um e-mail para definir a própria senha — ninguém, nem o administrador, vê ou digita a senha de outra pessoa.</li>
-        <li><strong>Papel Padrão x Administrador:</strong> contas Padrão usam o painel normalmente (livros, estudantes, empréstimos, relatórios), mas não veem a aba Administração nem podem gerenciar outras contas.</li>
+        <li><strong>Convidar usuário:</strong> informe nome e e-mail da pessoa e escolha se ela é Administrador. Ela recebe um e-mail para definir a própria senha — ninguém, nem o administrador, vê ou digita a senha de outra pessoa.</li>
+        <li><strong>Administrador x permissões:</strong> contas Administrador têm acesso total, incluindo esta aba. Para as demais, marque exatamente o que a pessoa pode ver e fazer (livros, estudantes, empréstimos, relatórios) usando as caixinhas de permissão — use os botões de predefinição (Padrão, Professor, Coordenação) como ponto de partida e ajuste como preferir.</li>
         <li><strong>Bloquear ou excluir:</strong> uma conta bloqueada não consegue mais entrar, mas fica registrada; excluir remove o acesso definitivamente.</li>
       </ol>
     </div>
@@ -1252,9 +1265,28 @@
     <div class="field">
       <label>Papel</label>
       <select id="contaRole">
-        <option value="padrao">Padrão</option>
+        <option value="padrao">Não administrador</option>
         <option value="admin">Administrador</option>
       </select>
+      <span class="field-hint">Administrador tem acesso total, incluindo esta aba de Administração. Para os demais, marque as permissões abaixo.</span>
+    </div>
+    <div class="field" id="contaPermissoesWrap">
+      <label>Permissões</label>
+      <div class="modal-actions" style="justify-content:flex-start; gap:6px; margin:0 0 10px 0;">
+        <button type="button" class="btn btn-sm" data-preset="padrao">Predefinição: Padrão (tudo)</button>
+        <button type="button" class="btn btn-sm" data-preset="professor">Predefinição: Professor</button>
+        <button type="button" class="btn btn-sm" data-preset="coordenacao">Predefinição: Coordenação</button>
+      </div>
+      <div class="permissoes-grid">
+        <label class="permissao-item"><input type="checkbox" id="permLivrosVisualizar"> Visualizar acervo de livros</label>
+        <label class="permissao-item"><input type="checkbox" id="permLivrosGerenciar"> Cadastrar / editar / excluir livros</label>
+        <label class="permissao-item"><input type="checkbox" id="permEstudantesVisualizar"> Visualizar estudantes</label>
+        <label class="permissao-item"><input type="checkbox" id="permEstudantesGerenciar"> Cadastrar / editar / excluir estudantes</label>
+        <label class="permissao-item"><input type="checkbox" id="permEmprestimosVisualizar"> Visualizar empréstimos</label>
+        <label class="permissao-item"><input type="checkbox" id="permEmprestimosRegistrar"> Registrar novo empréstimo</label>
+        <label class="permissao-item"><input type="checkbox" id="permEmprestimosGerenciar"> Devolver / editar / excluir empréstimos</label>
+        <label class="permissao-item"><input type="checkbox" id="permRelatoriosVisualizar"> Visualizar relatórios</label>
+      </div>
     </div>
     <div class="field">
       <label>Status</label>
@@ -1288,6 +1320,16 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ================= BOTÃO VOLTAR (em todas as abas) ================= */
+document.querySelectorAll('.view .topbar').forEach(topbar => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-voltar hidden';
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Voltar`;
+  btn.addEventListener('click', () => voltarView());
+  topbar.parentElement.insertBefore(btn, topbar);
+});
+
 /* ================= MOSTRAR/OCULTAR SENHA ================= */
 document.querySelectorAll('.password-field-wrap').forEach(wrap => {
   const input = wrap.querySelector('input');
@@ -1318,6 +1360,7 @@ const SHELF_COLOR = ['var(--series-1)','var(--series-2)','var(--series-3)','var(
 const state = { books: [], users: [], loans: [], profiles: [] };
 let currentUser = null; // { id, nome, role, ativo, email }
 let currentView = 'dashboard';
+let viewHistory = [];
 let livrosPage = 1;
 const LIVROS_PAGE_SIZE = 25;
 let alunosPage = 1;
@@ -1464,22 +1507,47 @@ async function enterAppWithSession(session) {
     showLoginScreen('Esta conta está bloqueada. Fale com um administrador.');
     return;
   }
-  currentUser = { id: profile.id, nome: profile.nome, role: profile.role, ativo: profile.ativo, email: profile.email || session.user.email };
+  currentUser = { id: profile.id, nome: profile.nome, role: profile.role, ativo: profile.ativo, email: profile.email || session.user.email, permissoes: colunaParaPermissoes(profile.permissoes) };
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('setPasswordScreen').classList.add('hidden');
   document.getElementById('appRoot').classList.remove('hidden');
   document.getElementById('loggedInAsName').textContent = currentUser.nome || currentUser.email;
-  document.getElementById('loggedInAsRole').textContent = currentUser.role === 'admin' ? 'Administrador' : 'Padrão';
+  document.getElementById('loggedInAsRole').textContent = roleLabel(currentUser.role);
   updateNavForRole();
   setLoading(true);
   await loadAllData();
   renderAll();
   setLoading(false);
 }
+function roleLabel(role) {
+  return role === 'admin' ? 'Administrador' : 'Não administrador';
+}
+function temPermissao(key) {
+  return !!(currentUser && (currentUser.role === 'admin' || (currentUser.permissoes && currentUser.permissoes[key])));
+}
 function updateNavForRole() {
   const isAdmin = currentUser && currentUser.role === 'admin';
   document.getElementById('navAdmin').style.display = isAdmin ? '' : 'none';
+  document.querySelector('.nav-item[data-view="alunos"]').style.display = temPermissao('estudantesVisualizar') ? '' : 'none';
+  document.querySelector('.nav-item[data-view="livros"]').style.display = temPermissao('livrosVisualizar') ? '' : 'none';
+  document.querySelector('.nav-item[data-view="relatorios"]').style.display = temPermissao('relatoriosVisualizar') ? '' : 'none';
+  const escondeDashboard = !isAdmin && !temPermissao('estudantesVisualizar') && !temPermissao('relatoriosVisualizar') && !temPermissao('livrosGerenciar');
+  document.querySelector('.nav-item[data-view="dashboard"]').style.display = escondeDashboard ? 'none' : '';
+  document.querySelector('.nav-item[data-view="emprestimos"]').style.display = temPermissao('emprestimosVisualizar') ? '' : 'none';
+  document.getElementById('btnNovoLivro').style.display = temPermissao('livrosGerenciar') ? '' : 'none';
+  document.getElementById('capasCard').style.display = temPermissao('livrosGerenciar') ? '' : 'none';
+  document.getElementById('cartazCard').style.display = temPermissao('livrosGerenciar') ? '' : 'none';
+  document.getElementById('btnNovoEmprestimo').style.display = temPermissao('emprestimosRegistrar') ? '' : 'none';
+  const limparEmprestimosCard = document.getElementById('btnLimparEmprestimos').closest('.card');
+  if (limparEmprestimosCard) limparEmprestimosCard.style.display = temPermissao('emprestimosGerenciar') ? '' : 'none';
+  if (!temPermissao('emprestimosGerenciar')) document.getElementById('btnExcluirSelecionados').style.display = 'none';
   if (!isAdmin && currentView === 'admin') switchView('dashboard');
+  if (currentUser) {
+    if (currentView === 'alunos' && !temPermissao('estudantesVisualizar')) switchView(temPermissao('livrosVisualizar') ? 'livros' : 'dashboard');
+    if (currentView === 'relatorios' && !temPermissao('relatoriosVisualizar')) switchView(temPermissao('livrosVisualizar') ? 'livros' : 'dashboard');
+    if (currentView === 'emprestimos' && !temPermissao('emprestimosVisualizar')) switchView(temPermissao('livrosVisualizar') ? 'livros' : 'dashboard');
+    if (currentView === 'dashboard' && escondeDashboard) switchView('livros');
+  }
 }
 async function attemptLogin() {
   const email = document.getElementById('loginEmail').value.trim();
@@ -1562,9 +1630,17 @@ navCadastroToggle.addEventListener('click', () => {
 });
 function switchView(view) {
   if (view === 'admin' && (!currentUser || currentUser.role !== 'admin')) return;
+  if (view === 'livros' && !temPermissao('livrosVisualizar')) return;
+  if (view === 'alunos' && !temPermissao('estudantesVisualizar')) return;
+  if (view === 'relatorios' && !temPermissao('relatoriosVisualizar')) return;
+  if (view === 'emprestimos' && !temPermissao('emprestimosVisualizar')) return;
+  if (view === 'dashboard' && currentUser && currentUser.role !== 'admin' && !temPermissao('estudantesVisualizar') && !temPermissao('relatoriosVisualizar') && !temPermissao('livrosGerenciar')) return;
+  if (view === currentView) return;
+  if (currentView) viewHistory.push(currentView);
   currentView = view;
   document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
+  document.querySelectorAll('.btn-voltar').forEach(b => b.classList.toggle('hidden', viewHistory.length === 0));
   const isCadastroView = CADASTRO_VIEWS.includes(view);
   navCadastroToggle.classList.toggle('parent-active', isCadastroView);
   if (isCadastroView) {
@@ -1572,6 +1648,14 @@ function switchView(view) {
     navCadastroToggle.setAttribute('aria-expanded', 'true');
   }
   renderAll();
+}
+function voltarView() {
+  const alvo = viewHistory.pop();
+  if (!alvo) return;
+  const historicoAntes = viewHistory.slice();
+  switchView(alvo);
+  viewHistory = historicoAntes;
+  document.querySelectorAll('.btn-voltar').forEach(b => b.classList.toggle('hidden', viewHistory.length === 0));
 }
 
 /* ---------------- menu mobile (gaveta lateral) ---------------- */
@@ -1848,8 +1932,8 @@ function renderLivros() {
           <td data-label="Quantidade">${b.quantidade ?? 1}</td>
           <td data-label="Status">${bookAvailabilityBadgeHtml(b)}</td>
           <td class="actions-cell">
-            <button class="btn btn-sm" onclick="editBook(${b.id})">Editar</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.id})">Excluir</button>
+            ${temPermissao('livrosGerenciar') ? `<button class="btn btn-sm" onclick="editBook(${b.id})">Editar</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.id})">Excluir</button>` : ''}
           </td>
         </tr>`).join('')}</tbody>`;
   }
@@ -2190,8 +2274,8 @@ function renderTurmaMenu() {
     .concat(turmas.map(t => ({ turma: t, label: t, count: state.users.filter(u => u.turma === t).length })));
   menu.innerHTML = items.map(it => `
     <button type="button" class="turma-menu-item ${it.turma === selectedTurma ? 'active' : ''}" data-turma="${escapeHtml(it.turma)}">
-      <span>${escapeHtml(it.label)}</span>
       <span class="count">${it.count}</span>
+      <span class="count-label">${escapeHtml(it.label)}</span>
     </button>`).join('');
 }
 document.getElementById('turmaMenu').addEventListener('click', (ev) => {
@@ -2226,8 +2310,13 @@ function renderAlunos() {
     tbl.innerHTML = `<tbody><tr><td class="empty-state">Nenhum estudante encontrado. Clique em "Novo estudante" para cadastrar.</td></tr></tbody>`;
   } else {
     tbl.innerHTML = `
-      <thead><tr><th>Nome</th><th>Turma</th><th>Turno</th><th>Ensino</th><th>AEE</th><th>Contato</th><th>Empréstimos ativos</th><th></th></tr></thead>
-      <tbody>${list.map(u => `
+      <thead><tr><th>Nome</th><th>Turma</th><th>Turno</th><th>Ensino</th><th>AEE</th><th>Contato</th><th>Empréstimo</th><th></th></tr></thead>
+      <tbody>${list.map(u => {
+        const ativos = activeLoansCountForUser(u.id);
+        const emprestimoBadge = ativos > 0
+          ? `<span class="badge badge-critical">Com empréstimo${ativos > 1 ? ' (' + ativos + ')' : ''}</span>`
+          : `<span class="badge badge-good">Sem empréstimo</span>`;
+        return `
         <tr>
           <td data-label="Nome">${escapeHtml(u.nome)}</td>
           <td data-label="Turma">${escapeHtml(u.turma)}</td>
@@ -2235,12 +2324,13 @@ function renderAlunos() {
           <td data-label="Ensino">${escapeHtml(u.ensino || '—')}</td>
           <td data-label="AEE">${u.aee === 'sim' ? '<span class="badge badge-muted">Sim</span>' : '—'}</td>
           <td data-label="Contato">${escapeHtml(u.contato || '—')}</td>
-          <td data-label="Empréstimos ativos">${activeLoansCountForUser(u.id)}</td>
+          <td data-label="Empréstimo">${emprestimoBadge}</td>
           <td class="actions-cell">
             <button class="btn btn-sm" onclick="editUser(${u.id})">Editar</button>
             <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Excluir</button>
           </td>
-        </tr>`).join('')}</tbody>`;
+        </tr>`;
+      }).join('')}</tbody>`;
   }
   const pag = document.getElementById('paginationAlunos');
   pag.innerHTML = `
@@ -2351,8 +2441,9 @@ function renderEmprestimos() {
     tbl.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum empréstimo encontrado.</td></tr></tbody>`;
     return;
   }
+  const podeGerenciar = temPermissao('emprestimosGerenciar');
   tbl.innerHTML = `
-    <thead><tr><th style="width:32px;"><input type="checkbox" id="chkSelecionarTodosEmprestimos"></th><th>Livro</th><th>Estudante</th><th>Empréstimo</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
+    <thead><tr>${podeGerenciar ? '<th style="width:32px;"><input type="checkbox" id="chkSelecionarTodosEmprestimos"></th>' : ''}<th>Livro</th><th>Estudante</th><th>Empréstimo</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
     <tbody>${list.map(l => {
       const b = bookById(l.bookId), u = userById(l.userId);
       const status = loanStatus(l);
@@ -2361,18 +2452,18 @@ function renderEmprestimos() {
       else if (status === 'atrasado') badge = `<span class="badge badge-critical">Atrasado (${daysBetween(l.dataPrevista, todayISO())}d)</span>`;
       else badge = `<span class="badge badge-muted">Ativo</span>`;
       return `<tr>
-        <td data-label=""><input type="checkbox" class="chkEmprestimo" value="${l.id}" ${emprestimosSelecionados.has(l.id) ? 'checked' : ''}></td>
+        ${podeGerenciar ? `<td data-label=""><input type="checkbox" class="chkEmprestimo" value="${l.id}" ${emprestimosSelecionados.has(l.id) ? 'checked' : ''}></td>` : ''}
         <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
         <td data-label="Estudante">${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
         <td data-label="Empréstimo">${fmtDate(l.dataEmprestimo)}</td>
         <td data-label="Previsão">${fmtDate(l.dataPrevista)}</td>
         <td data-label="Status">${badge}</td>
         <td class="actions-cell">
-          ${status !== 'devolvido' ? `<button class="btn btn-sm" onclick="returnLoan(${l.id})">Devolver</button>` : ''}
-          <button class="btn btn-sm btn-danger" onclick="confirmarExcluirEmprestimo(${l.id})">Excluir</button>
+          ${!podeGerenciar ? '' : (status !== 'devolvido' ? `<button class="btn btn-sm" onclick="returnLoan(${l.id})">Devolver</button>` : '') + `<button class="btn btn-sm btn-danger" onclick="confirmarExcluirEmprestimo(${l.id})">Excluir</button>`}
         </td>
       </tr>`;
     }).join('')}</tbody>`;
+  if (!podeGerenciar) { atualizarBotaoExcluirSelecionados(); return; }
   document.querySelectorAll('.chkEmprestimo').forEach(chk => {
     chk.addEventListener('change', () => {
       const id = Number(chk.value);
@@ -2601,7 +2692,7 @@ function renderContas() {
       <tr>
         <td data-label="Nome">${escapeHtml(a.nome)}</td>
         <td data-label="E-mail">${escapeHtml(a.email || '—')}</td>
-        <td data-label="Papel">${a.role === 'admin' ? '<span class="badge badge-muted">Administrador</span>' : '<span class="badge badge-muted">Padrão</span>'}</td>
+        <td data-label="Papel"><span class="badge badge-muted">${roleLabel(a.role)}</span></td>
         <td data-label="Status">${a.ativo ? '<span class="badge badge-good">Ativo</span>' : '<span class="badge badge-critical">Bloqueado</span>'}</td>
         <td class="actions-cell">
           <button class="btn btn-sm" onclick="editConta('${a.id}')">Editar</button>
@@ -2609,6 +2700,52 @@ function renderContas() {
         </td>
       </tr>`).join('')}</tbody>`;
 }
+const PERMISSAO_KEYS = ['livrosVisualizar','livrosGerenciar','estudantesVisualizar','estudantesGerenciar','emprestimosVisualizar','emprestimosRegistrar','emprestimosGerenciar','relatoriosVisualizar'];
+const PERMISSOES_PRESETS = {
+  padrao: { livrosVisualizar:true, livrosGerenciar:true, estudantesVisualizar:true, estudantesGerenciar:true, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:true, relatoriosVisualizar:true },
+  coordenacao: { livrosVisualizar:true, livrosGerenciar:true, estudantesVisualizar:true, estudantesGerenciar:true, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:true, relatoriosVisualizar:true },
+  professor: { livrosVisualizar:true, livrosGerenciar:false, estudantesVisualizar:false, estudantesGerenciar:false, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:false, relatoriosVisualizar:false },
+};
+function permKeyToId(key) { return 'perm' + key.charAt(0).toUpperCase() + key.slice(1); }
+function aplicarPermissoesNosCheckboxes(perms) {
+  PERMISSAO_KEYS.forEach(key => {
+    const el = document.getElementById(permKeyToId(key));
+    if (el) el.checked = !!(perms && perms[key]);
+  });
+}
+function lerPermissoesDosCheckboxes() {
+  const obj = {};
+  PERMISSAO_KEYS.forEach(key => {
+    const el = document.getElementById(permKeyToId(key));
+    obj[key] = !!(el && el.checked);
+  });
+  return obj;
+}
+function permissoesParaColuna(perms) {
+  return {
+    livros_visualizar: !!perms.livrosVisualizar, livros_gerenciar: !!perms.livrosGerenciar,
+    estudantes_visualizar: !!perms.estudantesVisualizar, estudantes_gerenciar: !!perms.estudantesGerenciar,
+    emprestimos_visualizar: !!perms.emprestimosVisualizar, emprestimos_registrar: !!perms.emprestimosRegistrar,
+    emprestimos_gerenciar: !!perms.emprestimosGerenciar, relatorios_visualizar: !!perms.relatoriosVisualizar,
+  };
+}
+function colunaParaPermissoes(col) {
+  col = col || {};
+  return {
+    livrosVisualizar: !!col.livros_visualizar, livrosGerenciar: !!col.livros_gerenciar,
+    estudantesVisualizar: !!col.estudantes_visualizar, estudantesGerenciar: !!col.estudantes_gerenciar,
+    emprestimosVisualizar: !!col.emprestimos_visualizar, emprestimosRegistrar: !!col.emprestimos_registrar,
+    emprestimosGerenciar: !!col.emprestimos_gerenciar, relatoriosVisualizar: !!col.relatorios_visualizar,
+  };
+}
+function atualizarVisibilidadePermissoesWrap() {
+  const isAdminSelecionado = document.getElementById('contaRole').value === 'admin';
+  document.getElementById('contaPermissoesWrap').classList.toggle('hidden', isAdminSelecionado);
+}
+document.getElementById('contaRole').addEventListener('change', atualizarVisibilidadePermissoesWrap);
+document.querySelectorAll('[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => aplicarPermissoesNosCheckboxes(PERMISSOES_PRESETS[btn.dataset.preset]));
+});
 function editConta(id) {
   const a = profileById(id);
   if (!a) return;
@@ -2618,8 +2755,10 @@ function editConta(id) {
   document.getElementById('contaEmail').value = a.email || '';
   document.getElementById('contaEmail').disabled = true;
   document.getElementById('contaEmailHint').textContent = 'O e-mail não pode ser alterado depois de criado.';
-  document.getElementById('contaRole').value = a.role;
+  document.getElementById('contaRole').value = a.role === 'admin' ? 'admin' : 'padrao';
   document.getElementById('contaAtiva').value = a.ativo ? 'sim' : 'nao';
+  aplicarPermissoesNosCheckboxes(colunaParaPermissoes(a.permissoes) || PERMISSOES_PRESETS.padrao);
+  atualizarVisibilidadePermissoesWrap();
   openModal('modalConta');
 }
 function deleteConta(id) {
@@ -2654,12 +2793,16 @@ document.getElementById('btnNovaConta').addEventListener('click', () => {
   document.getElementById('contaEmailHint').textContent = 'A pessoa recebe um e-mail de convite e define a própria senha. O e-mail não pode ser alterado depois de criado.';
   document.getElementById('contaRole').value = 'padrao';
   document.getElementById('contaAtiva').value = 'sim';
+  aplicarPermissoesNosCheckboxes(PERMISSOES_PRESETS.padrao);
+  atualizarVisibilidadePermissoesWrap();
   openModal('modalConta');
 });
 document.getElementById('btnSalvarConta').addEventListener('click', async () => {
   const nome = document.getElementById('contaNome').value.trim();
   const email = document.getElementById('contaEmail').value.trim();
   const role = document.getElementById('contaRole').value;
+  const permissoesObj = lerPermissoesDosCheckboxes();
+  const permissoesColuna = permissoesParaColuna(permissoesObj);
   const ativo = document.getElementById('contaAtiva').value === 'sim';
   const id = document.getElementById('contaId').value;
   if (!nome) { showToast('Informe o nome.'); return; }
@@ -2672,18 +2815,18 @@ document.getElementById('btnSalvarConta').addEventListener('click', async () => 
       showToast('É preciso manter ao menos um administrador ativo.');
       return;
     }
-    const { error } = await sb.from('profiles').update({ nome, role, ativo }).eq('id', id);
+    const { error } = await sb.from('profiles').update({ nome, role, ativo, permissoes: permissoesColuna }).eq('id', id);
     setLoading(false);
     if (error) { showToast(friendlyError(error)); return; }
     showToast('Usuário atualizado.');
     if (currentUser && currentUser.id === id) {
-      currentUser.nome = nome; currentUser.role = role;
+      currentUser.nome = nome; currentUser.role = role; currentUser.permissoes = permissoesObj;
       document.getElementById('loggedInAsName').textContent = nome;
-      document.getElementById('loggedInAsRole').textContent = role === 'admin' ? 'Administrador' : 'Padrão';
+      document.getElementById('loggedInAsRole').textContent = roleLabel(role);
     }
   } else {
     if (!email) { setLoading(false); showToast('Informe o e-mail.'); return; }
-    const { data, error } = await sb.functions.invoke('manage-user', { body: { action: 'create', email, nome, role } });
+    const { data, error } = await sb.functions.invoke('manage-user', { body: { action: 'create', email, nome, role, permissoes: permissoesColuna } });
     setLoading(false);
     if (error || (data && data.error)) { showToast((data && data.error) || friendlyError(error)); return; }
     showToast('Convite enviado por e-mail.');
