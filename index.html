@@ -2031,11 +2031,23 @@ document.getElementById('capaFileInput').addEventListener('change', async (e) =>
   e.target.value = '';
   if (!file) return;
   const status = document.getElementById('capaUploadStatus');
+  const TIPOS_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const TAMANHO_MAXIMO = 8 * 1024 * 1024;
+  if (!TIPOS_PERMITIDOS.includes(file.type)) {
+    status.textContent = 'Arquivo inválido. Envie uma imagem (JPG, PNG, WEBP ou GIF).';
+    showToast('Esse tipo de arquivo não é permitido para a capa.');
+    return;
+  }
+  if (file.size > TAMANHO_MAXIMO) {
+    status.textContent = 'Arquivo muito grande. O limite é 8MB.';
+    showToast('Imagem maior que 8MB — escolha um arquivo menor.');
+    return;
+  }
   status.textContent = 'Enviando foto...';
   try {
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
     const nomeArquivo = `capa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error: uploadError } = await sb.storage.from('capas-livros').upload(nomeArquivo, file, { upsert: true });
+    const { error: uploadError } = await sb.storage.from('capas-livros').upload(nomeArquivo, file, { upsert: true, contentType: file.type });
     if (uploadError) throw uploadError;
     const { data: pub } = sb.storage.from('capas-livros').getPublicUrl(nomeArquivo);
     document.getElementById('livroCapaUrl').value = pub.publicUrl;
