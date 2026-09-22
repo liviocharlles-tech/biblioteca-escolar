@@ -412,6 +412,22 @@
   .combo-option .sub { font-size: 11.5px; color: var(--text-muted); }
   .combo-empty { padding: 10px 11px; font-size: 12.5px; color: var(--text-muted); }
 
+  /* checklist de estudantes (empréstimo) */
+  .aluno-checklist {
+    max-height: 220px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface-2);
+  }
+  .aluno-item {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 13.5px; color: var(--text-primary); cursor: pointer;
+    padding: 7px 10px; border-bottom: 1px solid var(--border);
+  }
+  .aluno-item:last-child { border-bottom: none; }
+  .aluno-item:hover { background: var(--surface-1); }
+  .aluno-item input { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .aluno-checklist-empty { padding: 10px 11px; font-size: 12.5px; color: var(--text-muted); }
+
   .toast {
     position: fixed; bottom: 22px; right: 22px; z-index: 100;
     background: var(--text-primary); color: var(--page-plane);
@@ -1217,7 +1233,8 @@
 <!-- ===================== MODAL: EMPRESTIMO ===================== -->
 <div class="modal-backdrop" id="modalEmprestimo">
   <div class="modal">
-    <h3>Novo empréstimo</h3>
+    <h3 id="modalEmprestimoTitle">Novo empréstimo</h3>
+    <input type="hidden" id="emprestimoEditId">
     <div class="field combo">
       <label>Livro (apenas disponíveis)</label>
       <input type="text" id="emprestimoLivroSearch" placeholder="Buscar livro por título ou autor...">
@@ -1229,8 +1246,9 @@
       <select id="emprestimoTurma"></select>
     </div>
     <div class="field">
-      <label>Estudante</label>
-      <select id="emprestimoAlunoId"></select>
+      <label id="emprestimoAlunoLabel">Estudantes (somente ativos)</label>
+      <div class="aluno-checklist" id="emprestimoAlunoChecklist"></div>
+      <span class="field-hint" id="emprestimoAlunoHint"></span>
     </div>
     <div class="field">
       <label>Data do empréstimo</label>
@@ -2469,7 +2487,10 @@ function renderEmprestimos() {
         <td data-label="Previsão">${fmtDate(l.dataPrevista)}</td>
         <td data-label="Status">${badge}</td>
         <td class="actions-cell">
-          ${!podeGerenciar ? '' : (status !== 'devolvido' ? `<button class="btn btn-sm" onclick="returnLoan(${l.id})">Devolver</button>` : '') + `<button class="btn btn-sm btn-danger" onclick="confirmarExcluirEmprestimo(${l.id})">Excluir</button>`}
+          ${!podeGerenciar ? '' :
+            `<button class="btn btn-sm" onclick="abrirEdicaoEmprestimo(${l.id})">Editar</button>` +
+            (status !== 'devolvido' ? `<button class="btn btn-sm" onclick="returnLoan(${l.id})">Devolver</button>` : '') +
+            `<button class="btn btn-sm btn-danger" onclick="confirmarExcluirEmprestimo(${l.id})">Excluir</button>`}
         </td>
       </tr>`;
     }).join('')}</tbody>`;
@@ -2568,14 +2589,20 @@ async function returnLoan(id) {
 
 /* --- new loan modal --- */
 let selectedLoanBookId = null;
+const alunosSelecionadosEmprestimo = new Set();
 document.getElementById('btnNovoEmprestimo').addEventListener('click', () => {
-  if (!state.users.length) { showToast('Cadastre ao menos um estudante antes de registrar um empréstimo.'); return; }
+  if (!state.users.some(u => u.status === 'ativo')) { showToast('Cadastre ao menos um estudante ativo antes de registrar um empréstimo.'); return; }
   if (!state.books.some(b => bookDisponiveis(b) > 0)) { showToast('Não há livros disponíveis no momento.'); return; }
   selectedLoanBookId = null;
+  alunosSelecionadosEmprestimo.clear();
+  document.getElementById('emprestimoEditId').value = '';
+  document.getElementById('modalEmprestimoTitle').textContent = 'Novo empréstimo';
+  document.getElementById('btnSalvarEmprestimo').textContent = 'Registrar empréstimo';
+  document.getElementById('emprestimoAlunoLabel').textContent = 'Estudantes (somente ativos)';
   document.getElementById('emprestimoLivroSearch').value = '';
   document.getElementById('emprestimoLivroId').value = '';
   document.getElementById('comboLivros').classList.remove('active');
-  const turmas = [...new Set(state.users.map(u => u.turma).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
+  const turmas = [...new Set(state.users.filter(u => u.status === 'ativo').map(u => u.turma).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
   const turmaSel = document.getElementById('emprestimoTurma');
   turmaSel.innerHTML = `<option value="">Selecione a turma...</option>` +
     turmas.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
@@ -2587,20 +2614,80 @@ document.getElementById('btnNovoEmprestimo').addEventListener('click', () => {
 });
 function atualizarEstudantesPorTurma() {
   const turma = document.getElementById('emprestimoTurma').value;
-  const sel = document.getElementById('emprestimoAlunoId');
-  const alunos = turma ? state.users.filter(u => u.turma === turma) : [];
+  const wrap = document.getElementById('emprestimoAlunoChecklist');
+  const hint = document.getElementById('emprestimoAlunoHint');
+  const editId = document.getElementById('emprestimoEditId').value;
+  const emEdicao = !!editId;
+  const loanEmEdicao = emEdicao ? state.loans.find(l => l.id === Number(editId)) : null;
+
   if (!turma) {
-    sel.innerHTML = `<option value="">Selecione a turma primeiro...</option>`;
-    sel.disabled = true;
-  } else if (!alunos.length) {
-    sel.innerHTML = `<option value="">Nenhum estudante nesta turma</option>`;
-    sel.disabled = true;
-  } else {
-    sel.innerHTML = alunos.map(u => `<option value="${u.id}">${escapeHtml(u.nome)}</option>`).join('');
-    sel.disabled = false;
+    wrap.innerHTML = `<div class="aluno-checklist-empty">Selecione a turma primeiro...</div>`;
+    hint.textContent = '';
+    return;
   }
+  let alunos = state.users.filter(u => u.turma === turma && u.status === 'ativo');
+  // ao editar, mantém visível o estudante atual do registro mesmo que ele tenha ficado inativo
+  if (loanEmEdicao) {
+    const atual = userById(loanEmEdicao.userId);
+    if (atual && atual.turma === turma && !alunos.some(a => a.id === atual.id)) alunos = [...alunos, atual];
+  }
+  if (!alunos.length) {
+    wrap.innerHTML = `<div class="aluno-checklist-empty">Nenhum estudante ativo nesta turma.</div>`;
+    hint.textContent = '';
+    return;
+  }
+  alunos = alunos.slice().sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const inputType = emEdicao ? 'radio' : 'checkbox';
+  wrap.innerHTML = alunos.map(u => `
+    <label class="aluno-item">
+      <input type="${inputType}" name="emprestimoAluno" value="${u.id}" ${alunosSelecionadosEmprestimo.has(u.id) ? 'checked' : ''}>
+      ${escapeHtml(u.nome)}${u.status !== 'ativo' ? ' <span class="badge badge-critical" style="margin-left:6px;">Inativo</span>' : ''}
+    </label>`).join('');
+  const atualizarHint = () => {
+    hint.textContent = (!emEdicao && alunosSelecionadosEmprestimo.size > 1)
+      ? `${alunosSelecionadosEmprestimo.size} estudantes selecionados — será registrado um empréstimo para cada um.`
+      : '';
+  };
+  wrap.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const id = Number(inp.value);
+      if (emEdicao) { alunosSelecionadosEmprestimo.clear(); alunosSelecionadosEmprestimo.add(id); }
+      else if (inp.checked) alunosSelecionadosEmprestimo.add(id);
+      else alunosSelecionadosEmprestimo.delete(id);
+      atualizarHint();
+    });
+  });
+  atualizarHint();
 }
-document.getElementById('emprestimoTurma').addEventListener('change', atualizarEstudantesPorTurma);
+document.getElementById('emprestimoTurma').addEventListener('change', () => {
+  alunosSelecionadosEmprestimo.clear();
+  atualizarEstudantesPorTurma();
+});
+function abrirEdicaoEmprestimo(id) {
+  const loan = state.loans.find(l => l.id === id);
+  if (!loan) return;
+  const b = bookById(loan.bookId);
+  const u = userById(loan.userId);
+  selectedLoanBookId = loan.bookId;
+  alunosSelecionadosEmprestimo.clear();
+  if (u) alunosSelecionadosEmprestimo.add(u.id);
+  document.getElementById('emprestimoEditId').value = loan.id;
+  document.getElementById('modalEmprestimoTitle').textContent = 'Editar empréstimo';
+  document.getElementById('btnSalvarEmprestimo').textContent = 'Salvar alterações';
+  document.getElementById('emprestimoAlunoLabel').textContent = 'Estudante';
+  document.getElementById('emprestimoLivroSearch').value = b ? b.titulo : '';
+  document.getElementById('emprestimoLivroId').value = loan.bookId;
+  document.getElementById('comboLivros').classList.remove('active');
+  const turmas = [...new Set(state.users.map(x => x.turma).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
+  const turmaSel = document.getElementById('emprestimoTurma');
+  turmaSel.innerHTML = `<option value="">Selecione a turma...</option>` +
+    turmas.map(t => `<option value="${escapeHtml(t)}" ${u && u.turma === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+  atualizarEstudantesPorTurma();
+  document.getElementById('emprestimoData').value = loan.dataEmprestimo;
+  document.getElementById('emprestimoPrazo').value = Math.max(1, daysBetween(loan.dataEmprestimo, loan.dataPrevista));
+  updatePrevisaoTexto();
+  openModal('modalEmprestimo');
+}
 function updatePrevisaoTexto() {
   const data = document.getElementById('emprestimoData').value || todayISO();
   const prazo = Number(document.getElementById('emprestimoPrazo').value || 14);
@@ -2646,25 +2733,61 @@ document.addEventListener('click', (e) => {
 });
 
 document.getElementById('btnSalvarEmprestimo').addEventListener('click', async () => {
+  const editId = document.getElementById('emprestimoEditId').value;
   const bookId = Number(document.getElementById('emprestimoLivroId').value);
-  const userId = Number(document.getElementById('emprestimoAlunoId').value);
+  const alunoIds = [...alunosSelecionadosEmprestimo];
   const data = document.getElementById('emprestimoData').value || todayISO();
   const prazo = Number(document.getElementById('emprestimoPrazo').value || 14);
   if (!bookId) { showToast('Selecione um livro disponível na lista.'); return; }
-  if (!userId) { showToast('Selecione um estudante.'); return; }
+  if (!alunoIds.length) { showToast('Selecione ao menos um estudante.'); return; }
   const b = bookById(bookId);
-  if (!b || bookDisponiveis(b) <= 0) { showToast('Este livro não está mais disponível.'); return; }
+  if (!b) { showToast('Livro não encontrado.'); return; }
+
+  if (editId) {
+    const loan = state.loans.find(l => l.id === Number(editId));
+    if (!loan) { closeModal('modalEmprestimo'); return; }
+    const userId = alunoIds[0];
+    const trocouLivro = bookId !== loan.bookId;
+    if (trocouLivro && bookDisponiveis(b) <= 0) { showToast('Este livro não está mais disponível.'); return; }
+    setLoading(true);
+    const { error: e1 } = await sb.from('loans').update({
+      book_id: bookId, student_id: userId,
+      data_emprestimo: data, data_prevista: addDaysISO(data, prazo)
+    }).eq('id', loan.id);
+    if (e1) { setLoading(false); showToast(friendlyError(e1)); return; }
+    if (trocouLivro) {
+      const livroAntigo = bookById(loan.bookId);
+      if (livroAntigo) {
+        const qtdAntiga = Math.max(0, livroAntigo.quantidadeEmprestada - 1);
+        await sb.from('books').update({ quantidade_emprestada: qtdAntiga, status: qtdAntiga < livroAntigo.quantidade ? 'disponivel' : 'emprestado' }).eq('id', livroAntigo.id);
+      }
+      const qtdNova = b.quantidadeEmprestada + 1;
+      await sb.from('books').update({ quantidade_emprestada: qtdNova, status: qtdNova >= b.quantidade ? 'emprestado' : 'disponivel' }).eq('id', b.id);
+    }
+    showToast('Empréstimo atualizado.');
+    closeModal('modalEmprestimo');
+    await Promise.all([loadBooks(), loadLoans()]);
+    renderAll();
+    setLoading(false);
+    return;
+  }
+
+  if (bookDisponiveis(b) < alunoIds.length) {
+    showToast(`Só há ${bookDisponiveis(b)} exemplar(es) disponível(is) para ${alunoIds.length} estudantes selecionados.`);
+    return;
+  }
   setLoading(true);
-  const { error: e1 } = await sb.from('loans').insert({
+  const registros = alunoIds.map(userId => ({
     book_id: bookId, student_id: userId,
     data_emprestimo: data, data_prevista: addDaysISO(data, prazo), data_devolucao: null
-  });
+  }));
+  const { error: e1 } = await sb.from('loans').insert(registros);
   if (e1) { setLoading(false); showToast(friendlyError(e1)); return; }
-  const novaQuantidadeEmprestada = b.quantidadeEmprestada + 1;
+  const novaQuantidadeEmprestada = b.quantidadeEmprestada + alunoIds.length;
   const novoStatus = novaQuantidadeEmprestada >= b.quantidade ? 'emprestado' : 'disponivel';
   const { error: e2 } = await sb.from('books').update({ quantidade_emprestada: novaQuantidadeEmprestada, status: novoStatus }).eq('id', bookId);
   if (e2) { setLoading(false); showToast(friendlyError(e2)); return; }
-  showToast('Empréstimo registrado.');
+  showToast(alunoIds.length > 1 ? `${alunoIds.length} empréstimos registrados.` : 'Empréstimo registrado.');
   closeModal('modalEmprestimo');
   await Promise.all([loadBooks(), loadLoans()]);
   renderAll();
