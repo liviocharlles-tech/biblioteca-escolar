@@ -1896,15 +1896,17 @@ function renderRelatorios() {
     tblPrazos.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum empréstimo ativo no momento.</td></tr></tbody>`;
   } else {
     tblPrazos.innerHTML = `
-      <thead><tr><th>Livro</th><th>Estudante</th><th>Data do empréstimo</th><th>Previsão</th><th>Tempo restante</th></tr></thead>
+      <thead><tr><th>Livro</th><th>Localização</th><th>Estudante</th><th>Data do empréstimo</th><th>Previsão</th><th>Tempo restante</th></tr></thead>
       <tbody>${prazos.map(({ loan, dias }) => {
         const b = bookById(loan.bookId), u = userById(loan.userId);
         let tempoBadge;
         if (dias < 0) tempoBadge = `<span class="badge badge-critical">Atrasado há ${Math.abs(dias)} dia${Math.abs(dias) === 1 ? '' : 's'}</span>`;
         else if (dias === 0) tempoBadge = `<span class="badge badge-warning">Vence hoje</span>`;
         else tempoBadge = `<span class="badge ${dias <= 2 ? 'badge-warning' : 'badge-muted'}">${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}</span>`;
+        const localizacao = b ? `Estante ${b.estante}${b.prateleira ? ' · Prat. ' + b.prateleira : ''}` : '—';
         return `<tr>
           <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
+          <td data-label="Localização">${escapeHtml(localizacao)}</td>
           <td data-label="Estudante">${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
           <td data-label="Data do empréstimo">${fmtDate(loan.dataEmprestimo)}</td>
           <td data-label="Previsão">${fmtDate(loan.dataPrevista)}</td>
@@ -2529,7 +2531,7 @@ function renderEmprestimos() {
   }
   const podeGerenciar = temPermissao('emprestimosGerenciar');
   tbl.innerHTML = `
-    <thead><tr>${podeGerenciar ? '<th style="width:32px;"><input type="checkbox" id="chkSelecionarTodosEmprestimos"></th>' : ''}<th>Livro</th><th>Estudante</th><th>Empréstimo</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
+    <thead><tr>${podeGerenciar ? '<th style="width:32px;"><input type="checkbox" id="chkSelecionarTodosEmprestimos"></th>' : ''}<th>Livro</th><th>Localização</th><th>Estudante</th><th>Empréstimo</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
     <tbody>${list.map(l => {
       const b = bookById(l.bookId), u = userById(l.userId);
       const status = loanStatus(l);
@@ -2537,9 +2539,11 @@ function renderEmprestimos() {
       if (status === 'devolvido') badge = `<span class="badge badge-good">Devolvido em ${fmtDate(l.dataDevolucao)}</span>`;
       else if (status === 'atrasado') badge = `<span class="badge badge-critical">Atrasado (${daysBetween(l.dataPrevista, todayISO())}d)</span>`;
       else badge = `<span class="badge badge-muted">Ativo</span>`;
+      const localizacao = b ? `Estante ${b.estante}${b.prateleira ? ' · Prat. ' + b.prateleira : ''}` : '—';
       return `<tr>
         ${podeGerenciar ? `<td data-label=""><input type="checkbox" class="chkEmprestimo" value="${l.id}" ${emprestimosSelecionados.has(l.id) ? 'checked' : ''}></td>` : ''}
         <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
+        <td data-label="Localização">${escapeHtml(localizacao)}</td>
         <td data-label="Estudante">${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
         <td data-label="Empréstimo">${fmtDate(l.dataEmprestimo)}</td>
         <td data-label="Previsão">${fmtDate(l.dataPrevista)}</td>
