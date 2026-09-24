@@ -161,6 +161,64 @@
   }
   .lightbox-backdrop.active { display: flex; }
   .lightbox-backdrop img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+  /* ---------- Botões e campos de formulário ---------- */
+  .btn {
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    padding: 11px 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-1); color: var(--text-primary); cursor: pointer;
+  }
+  .btn-primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+  .btn-block { width: 100%; display: block; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .field { margin-bottom: 13px; display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
+  textarea {
+    font-family: inherit; font-size: 14px; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; outline: none; width: 100%;
+    resize: vertical; min-height: 70px;
+  }
+  textarea:focus { border-color: var(--series-1); }
+
+  /* ---------- Avaliações (estrelas + comentários) ---------- */
+  .avaliar-toolbar-btn { margin-bottom: 14px; }
+  .avaliar-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 700; color: var(--series-1);
+    background: none; border: none; padding: 0; margin-top: 16px; cursor: pointer;
+  }
+  .stars-display { display: inline-flex; align-items: center; gap: 2px; }
+  .stars-display svg { width: 13px; height: 13px; }
+  .stars-display .star-fill { fill: #f0ad3a; stroke: #f0ad3a; }
+  .stars-display .star-empty { fill: none; stroke: var(--text-muted); }
+  .rating-summary { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-secondary); }
+  .rating-summary.card-rating { margin-top: 3px; }
+  .review-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 4px 0; }
+  .review-item { background: var(--page-plane); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
+  .review-item .review-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .review-item .review-author { font-size: 12px; font-weight: 700; }
+  .review-item .review-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0; white-space: pre-line; }
+  .review-empty { font-size: 12.5px; color: var(--text-muted); }
+  .star-input { display: flex; gap: 4px; margin: 4px 0; }
+  .star-input button { background: none; border: none; padding: 2px; cursor: pointer; color: var(--text-muted); line-height: 0; }
+  .star-input button svg { width: 28px; height: 28px; }
+  .star-input button.active { color: #f0ad3a; }
+  .book-mini {
+    display: flex; gap: 10px; align-items: center; padding: 9px 10px;
+    border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
+    cursor: pointer; background: var(--surface-1);
+  }
+  .book-mini:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); }
+  .book-mini img, .book-mini .book-cover-placeholder { width: 32px; height: 44px; border-radius: 4px; flex-shrink: 0; }
+  .book-mini .info { flex: 1; min-width: 0; }
+  .book-mini .info .t { font-size: 13px; font-weight: 600; }
+  .book-mini .info .s { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+  .msg-feedback { font-size: 12.5px; margin-top: 10px; }
+  .msg-feedback.ok { color: var(--good-text); }
+  .msg-feedback.err { color: var(--status-critical); }
+  .avaliar-hint { font-size: 12px; color: var(--text-muted); margin: 0 0 10px 0; }
+  .avaliar-voltar { font-size: 12.5px; margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -185,6 +243,8 @@
     </button>
   </div>
 
+  <button class="btn btn-primary btn-block avaliar-toolbar-btn" id="btnAbrirAvaliar">⭐ Avalie um livro que você leu</button>
+
   <div class="summary" id="summary"></div>
   <div id="results"></div>
 </div>
@@ -202,6 +262,58 @@
       <div class="modal-meta" id="detalheMeta"></div>
       <div class="modal-sinopse-label">Sinopse</div>
       <p class="modal-sinopse" id="detalheSinopse"></p>
+
+      <div class="modal-sinopse-label" style="margin-top:18px;">Avaliações de quem leu</div>
+      <div class="rating-summary" id="detalheAvaliacaoResumo"></div>
+      <div class="review-list" id="detalheAvaliacaoLista"></div>
+      <button class="avaliar-link" id="btnAvaliarEsteLivro">⭐ Avalie este livro</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: AVALIAR LIVRO ===================== -->
+<div class="modal-backdrop" id="modalAvaliar">
+  <div class="modal-box">
+    <button class="modal-close" id="btnFecharAvaliar" aria-label="Fechar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="modal-body">
+      <h2 style="margin-bottom:4px;">Avaliar um livro</h2>
+      <p class="modal-autor" style="margin-bottom:16px;">Só é possível avaliar livros que você realmente pegou emprestado na biblioteca.</p>
+
+      <div id="avaliarPasso1">
+        <div class="field">
+          <label>Sua turma</label>
+          <select id="avaliarTurma"><option value="">Selecione...</option></select>
+        </div>
+        <div class="field">
+          <label>Seu nome</label>
+          <select id="avaliarAluno" disabled><option value="">Selecione a turma primeiro...</option></select>
+        </div>
+        <button class="btn btn-primary btn-block" id="btnAvaliarContinuar">Continuar</button>
+        <p class="msg-feedback err" id="avaliarPasso1Feedback"></p>
+      </div>
+
+      <div id="avaliarPasso2" style="display:none;">
+        <p class="avaliar-voltar"><button class="avaliar-link" id="btnAvaliarTrocarAluno" style="margin-top:0;">← Trocar de estudante</button></p>
+        <p class="avaliar-hint">Só aparecem aqui os livros que você já pegou emprestado nesta biblioteca.</p>
+        <div id="avaliarListaLivros"></div>
+      </div>
+
+      <div id="avaliarPasso3" style="display:none;">
+        <p class="avaliar-voltar"><button class="avaliar-link" id="btnAvaliarVoltarLista" style="margin-top:0;">← Voltar para a lista de livros</button></p>
+        <div class="book-mini" id="avaliarLivroSelecionadoInfo" style="cursor:default;"></div>
+        <div class="field">
+          <label>Sua nota</label>
+          <div class="star-input" id="avaliarStarInput"></div>
+        </div>
+        <div class="field">
+          <label>Comentário (opcional)</label>
+          <textarea id="avaliarComentario" maxlength="500" placeholder="O que você achou deste livro?"></textarea>
+        </div>
+        <button class="btn btn-primary btn-block" id="btnEnviarAvaliacao">Enviar avaliação</button>
+        <p class="msg-feedback" id="avaliarFeedback"></p>
+      </div>
     </div>
   </div>
 </div>
@@ -258,7 +370,7 @@ async function loadBooks() {
   results.innerHTML = '<div class="loading-state">Carregando…</div>';
   summary.textContent = '';
 
-  let query = sb.from('books').select('titulo, autor, estante, prateleira, status, capa_url, quantidade, quantidade_emprestada, sinopse, categoria').order('titulo');
+  let query = sb.from('books').select('id, titulo, autor, estante, prateleira, status, capa_url, quantidade, quantidade_emprestada, sinopse, categoria').order('titulo');
 
   const { data, error } = await query;
   btn.classList.remove('spinning');
@@ -269,6 +381,37 @@ async function loadBooks() {
   }
   allBooks = data || [];
   render();
+  loadRatings();
+}
+
+/* ================= AVALIAÇÕES: RESUMO POR LIVRO ================= */
+let ratingsByBook = {};
+async function loadRatings() {
+  const { data, error } = await sb.from('reviews').select('book_id, nota').eq('status', 'aprovado');
+  if (error || !data) return;
+  const acc = {};
+  data.forEach(r => {
+    if (!acc[r.book_id]) acc[r.book_id] = { soma: 0, count: 0 };
+    acc[r.book_id].soma += r.nota;
+    acc[r.book_id].count += 1;
+  });
+  ratingsByBook = {};
+  Object.keys(acc).forEach(id => { ratingsByBook[id] = { media: acc[id].soma / acc[id].count, count: acc[id].count }; });
+  render();
+}
+function starsDisplayHtml(media) {
+  const cheias = Math.round(media);
+  let svgs = '';
+  for (let i = 1; i <= 5; i++) {
+    const cls = i <= cheias ? 'star-fill' : 'star-empty';
+    svgs += `<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linejoin="round" class="${cls}"><polygon points="12 2 15.09 8.63 22 9.24 16.5 14.14 18.18 21 12 17.27 5.82 21 7.5 14.14 2 9.24 8.91 8.63"/></svg>`;
+  }
+  return svgs;
+}
+function ratingSummaryHtml(bookId) {
+  const r = ratingsByBook[bookId];
+  if (!r) return '';
+  return `<span class="stars-display">${starsDisplayHtml(r.media)}</span> ${r.media.toFixed(1)} (${r.count} avalia${r.count === 1 ? 'ção' : 'ções'})`;
 }
 
 function bookDisponiveis(b) {
@@ -314,6 +457,7 @@ function render() {
     if (b.prateleira) metaParts.push('Prat. ' + b.prateleira);
     if (b.categoria) metaParts.push(b.categoria);
     const metaLine = metaParts.length ? `<div class="estante-tag">${escapeHtml(metaParts.join(' · '))}</div>` : '';
+    const ratingLine = ratingsByBook[b.id] ? `<div class="rating-summary card-rating">${ratingSummaryHtml(b.id)}</div>` : '';
     return `
     <div class="book-card" onclick="openDetail(${idx})">
       ${b.capa_url
@@ -323,6 +467,7 @@ function render() {
         <div class="titulo">${escapeHtml(b.titulo)}</div>
         <div class="autor">${escapeHtml(b.autor)}</div>
         ${metaLine}
+        ${ratingLine}
       </div>
       ${badge}
     </div>`;
@@ -353,6 +498,8 @@ function openDetail(idx) {
     coverWrap.onclick = null;
   }
   document.getElementById('modalDetalhe').classList.add('active');
+  carregarAvaliacoesDoLivro(b.id);
+  document.getElementById('btnAvaliarEsteLivro').onclick = () => abrirAvaliar({ id: b.id, titulo: b.titulo, capa_url: b.capa_url });
 }
 function closeDetail() { document.getElementById('modalDetalhe').classList.remove('active'); }
 document.getElementById('btnFecharDetalhe').addEventListener('click', closeDetail);
@@ -381,6 +528,206 @@ document.addEventListener('keydown', (e) => {
 
 document.getElementById('searchInput').addEventListener('input', render);
 document.getElementById('btnRefresh').addEventListener('click', loadBooks);
+
+/* ================= AVALIAÇÕES: comentários aprovados de um livro ================= */
+async function carregarAvaliacoesDoLivro(bookId) {
+  const resumoEl = document.getElementById('detalheAvaliacaoResumo');
+  const listaEl = document.getElementById('detalheAvaliacaoLista');
+  resumoEl.innerHTML = '';
+  listaEl.innerHTML = '<div class="review-empty">Carregando avaliações…</div>';
+  const { data, error } = await sb.from('reviews')
+    .select('nota, comentario, aluno_nome_exibicao, aluno_turma, created_at')
+    .eq('book_id', bookId).eq('status', 'aprovado')
+    .order('created_at', { ascending: false });
+  if (error) { listaEl.innerHTML = '<div class="review-empty">Não foi possível carregar as avaliações agora.</div>'; return; }
+  const reviews = data || [];
+  if (!reviews.length) {
+    resumoEl.innerHTML = '';
+    listaEl.innerHTML = '<div class="review-empty">Este livro ainda não tem avaliações. Seja o primeiro a avaliar!</div>';
+    return;
+  }
+  const media = reviews.reduce((s, r) => s + r.nota, 0) / reviews.length;
+  resumoEl.innerHTML = `<span class="stars-display">${starsDisplayHtml(media)}</span> ${media.toFixed(1)} (${reviews.length} avalia${reviews.length === 1 ? 'ção' : 'ções'})`;
+  listaEl.innerHTML = reviews.map(r => `
+    <div class="review-item">
+      <div class="review-head">
+        <span class="review-author">${escapeHtml(r.aluno_nome_exibicao)}${r.aluno_turma ? ' · ' + escapeHtml(r.aluno_turma) : ''}</span>
+        <span class="stars-display">${starsDisplayHtml(r.nota)}</span>
+      </div>
+      ${r.comentario ? `<p class="review-text">${escapeHtml(r.comentario)}</p>` : ''}
+    </div>`).join('');
+}
+
+/* ================= FLUXO: AVALIAR UM LIVRO (turma → nome → livro → nota) ================= */
+let avaliarAlunoSelecionado = null; // { id, nome }
+let avaliarLivrosCache = [];
+let avaliarLivroAlvo = null;
+let avaliarLivroAtual = null;
+let avaliarNotaAtual = 0;
+let avaliarTurmasCarregadas = false;
+
+function mostrarPassoAvaliar(passo) {
+  document.getElementById('avaliarPasso1').style.display = passo === 1 ? '' : 'none';
+  document.getElementById('avaliarPasso2').style.display = passo === 2 ? '' : 'none';
+  document.getElementById('avaliarPasso3').style.display = passo === 3 ? '' : 'none';
+}
+
+async function abrirAvaliar(livroAlvo) {
+  avaliarLivroAlvo = livroAlvo ? livroAlvo.id : null;
+  document.getElementById('avaliarPasso1Feedback').textContent = '';
+  document.getElementById('avaliarFeedback').textContent = '';
+  document.getElementById('avaliarFeedback').className = 'msg-feedback';
+  document.getElementById('modalAvaliar').classList.add('active');
+
+  if (avaliarAlunoSelecionado) {
+    await carregarLivrosParaAvaliar();
+  } else {
+    mostrarPassoAvaliar(1);
+    if (!avaliarTurmasCarregadas) {
+      const { data, error } = await sb.rpc('turmas_ativas');
+      const sel = document.getElementById('avaliarTurma');
+      if (!error && data) {
+        sel.innerHTML = '<option value="">Selecione...</option>' + data.map(t => `<option value="${escapeHtml(t.turma)}">${escapeHtml(t.turma)}</option>`).join('');
+        avaliarTurmasCarregadas = true;
+      }
+    }
+  }
+}
+function closeAvaliar() { document.getElementById('modalAvaliar').classList.remove('active'); }
+document.getElementById('btnAbrirAvaliar').addEventListener('click', () => abrirAvaliar(null));
+document.getElementById('btnFecharAvaliar').addEventListener('click', closeAvaliar);
+document.getElementById('modalAvaliar').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeAvaliar();
+});
+
+document.getElementById('avaliarTurma').addEventListener('change', async () => {
+  const turma = document.getElementById('avaliarTurma').value;
+  const sel = document.getElementById('avaliarAluno');
+  if (!turma) { sel.innerHTML = '<option value="">Selecione a turma primeiro...</option>'; sel.disabled = true; return; }
+  sel.innerHTML = '<option value="">Carregando...</option>';
+  sel.disabled = true;
+  const { data, error } = await sb.rpc('estudantes_da_turma', { p_turma: turma });
+  if (error || !data || !data.length) {
+    sel.innerHTML = '<option value="">Nenhum estudante ativo nesta turma</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">Selecione...</option>' + data.map(a => `<option value="${a.id}">${escapeHtml(a.nome)}</option>`).join('');
+  sel.disabled = false;
+});
+
+document.getElementById('btnAvaliarContinuar').addEventListener('click', async () => {
+  const turma = document.getElementById('avaliarTurma').value;
+  const alunoSel = document.getElementById('avaliarAluno');
+  const alunoId = alunoSel.value;
+  const feedback = document.getElementById('avaliarPasso1Feedback');
+  if (!turma || !alunoId) { feedback.textContent = 'Selecione sua turma e seu nome para continuar.'; return; }
+  feedback.textContent = '';
+  avaliarAlunoSelecionado = { id: Number(alunoId), nome: alunoSel.options[alunoSel.selectedIndex].textContent };
+  await carregarLivrosParaAvaliar();
+});
+
+async function carregarLivrosParaAvaliar() {
+  const { data, error } = await sb.rpc('livros_para_avaliar', { p_student_id: avaliarAlunoSelecionado.id });
+  if (error) {
+    document.getElementById('avaliarPasso1Feedback').textContent = 'Não foi possível carregar seus empréstimos agora. Tente novamente.';
+    mostrarPassoAvaliar(1);
+    return;
+  }
+  avaliarLivrosCache = data || [];
+  if (avaliarLivroAlvo) {
+    const alvo = avaliarLivrosCache.find(l => l.book_id === avaliarLivroAlvo);
+    avaliarLivroAlvo = null;
+    if (alvo) { abrirPasso3(alvo); return; }
+  }
+  mostrarPasso2();
+}
+
+function statusAvaliacaoBadge(status) {
+  if (status === 'aprovado') return '<span class="badge badge-good">Avaliação aprovada</span>';
+  if (status === 'pendente') return '<span class="badge badge-out">Avaliação em análise</span>';
+  if (status === 'rejeitado') return '<span class="badge badge-out">Avaliação não publicada</span>';
+  return '';
+}
+
+function mostrarPasso2() {
+  mostrarPassoAvaliar(2);
+  const wrap = document.getElementById('avaliarListaLivros');
+  if (!avaliarLivrosCache.length) {
+    wrap.innerHTML = '<div class="review-empty">Nenhum empréstimo registrado em seu nome ainda. Assim que você pegar um livro emprestado na biblioteca, ele aparecerá aqui para avaliação.</div>';
+    return;
+  }
+  wrap.innerHTML = avaliarLivrosCache.map((l, i) => `
+    <div class="book-mini" data-idx="${i}">
+      ${l.capa_url ? `<img src="${escapeHtml(l.capa_url)}" alt="" onerror="handleCoverError(this)">` : BOOK_COVER_PLACEHOLDER_HTML}
+      <div class="info">
+        <div class="t">${escapeHtml(l.titulo)}</div>
+        <div class="s">${l.status_avaliacao ? statusAvaliacaoBadge(l.status_avaliacao) : 'Ainda não avaliado'}</div>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.book-mini').forEach(el => {
+    el.addEventListener('click', () => abrirPasso3(avaliarLivrosCache[Number(el.dataset.idx)]));
+  });
+}
+document.getElementById('btnAvaliarTrocarAluno').addEventListener('click', () => {
+  avaliarAlunoSelecionado = null;
+  document.getElementById('avaliarAluno').innerHTML = '<option value="">Selecione a turma primeiro...</option>';
+  document.getElementById('avaliarAluno').disabled = true;
+  document.getElementById('avaliarTurma').value = '';
+  mostrarPassoAvaliar(1);
+});
+document.getElementById('btnAvaliarVoltarLista').addEventListener('click', mostrarPasso2);
+
+function renderStarInput(nota) {
+  avaliarNotaAtual = nota;
+  const wrap = document.getElementById('avaliarStarInput');
+  wrap.innerHTML = [1,2,3,4,5].map(n => `
+    <button type="button" data-n="${n}" class="${n <= nota ? 'active' : ''}" aria-label="${n} estrela${n === 1 ? '' : 's'}">
+      <svg viewBox="0 0 24 24" fill="${n <= nota ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="12 2 15.09 8.63 22 9.24 16.5 14.14 18.18 21 12 17.27 5.82 21 7.5 14.14 2 9.24 8.91 8.63"/></svg>
+    </button>`).join('');
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => renderStarInput(Number(btn.dataset.n)));
+  });
+}
+
+function abrirPasso3(livro) {
+  avaliarLivroAtual = livro;
+  mostrarPassoAvaliar(3);
+  document.getElementById('avaliarFeedback').textContent = '';
+  document.getElementById('avaliarFeedback').className = 'msg-feedback';
+  document.getElementById('avaliarLivroSelecionadoInfo').innerHTML = `
+    ${livro.capa_url ? `<img src="${escapeHtml(livro.capa_url)}" alt="" onerror="handleCoverError(this)">` : BOOK_COVER_PLACEHOLDER_HTML}
+    <div class="info">
+      <div class="t">${escapeHtml(livro.titulo)}</div>
+      <div class="s">${escapeHtml(livro.autor || '')}</div>
+    </div>`;
+  renderStarInput(livro.nota || 0);
+  document.getElementById('avaliarComentario').value = livro.comentario || '';
+}
+
+document.getElementById('btnEnviarAvaliacao').addEventListener('click', async () => {
+  const feedback = document.getElementById('avaliarFeedback');
+  if (!avaliarNotaAtual) { feedback.textContent = 'Escolha de 1 a 5 estrelas antes de enviar.'; feedback.className = 'msg-feedback err'; return; }
+  const btn = document.getElementById('btnEnviarAvaliacao');
+  btn.disabled = true;
+  const comentario = document.getElementById('avaliarComentario').value.trim();
+  const { error } = await sb.rpc('enviar_avaliacao', {
+    p_student_id: avaliarAlunoSelecionado.id,
+    p_book_id: avaliarLivroAtual.book_id,
+    p_nota: avaliarNotaAtual,
+    p_comentario: comentario || null,
+  });
+  btn.disabled = false;
+  if (error) {
+    feedback.textContent = 'Não foi possível enviar sua avaliação agora. Tente novamente em instantes.';
+    feedback.className = 'msg-feedback err';
+    return;
+  }
+  feedback.textContent = 'Avaliação enviada! Ela aparecerá no catálogo depois que a biblioteca aprovar.';
+  feedback.className = 'msg-feedback ok';
+  const item = avaliarLivrosCache.find(l => l.book_id === avaliarLivroAtual.book_id);
+  if (item) { item.status_avaliacao = 'pendente'; item.nota = avaliarNotaAtual; item.comentario = comentario || null; }
+});
+
 loadBooks();
 </script>
 </body>

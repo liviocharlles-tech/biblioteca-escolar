@@ -427,6 +427,16 @@
   .aluno-item:hover { background: var(--surface-1); }
   .aluno-item input { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
   .aluno-checklist-empty { padding: 10px 11px; font-size: 12.5px; color: var(--text-muted); }
+  #emprestimoAlunoTodosWrap { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); margin-bottom: 6px; }
+
+  /* estrelas (avaliações) */
+  .stars-mini { display: inline-flex; gap: 1px; vertical-align: middle; }
+  .stars-mini svg { width: 13px; height: 13px; }
+  .stars-mini .star-fill { fill: #d99a1f; stroke: #d99a1f; }
+  .stars-mini .star-empty { fill: none; stroke: var(--text-muted); }
+  .avaliacao-comentario { max-width: 320px; white-space: normal; font-size: 13px; color: var(--text-secondary); }
+  .avaliacao-comentario.vazio { color: var(--text-muted); font-style: italic; }
+  .hidden { display: none !important; }
 
   .toast {
     position: fixed; bottom: 22px; right: 22px; z-index: 100;
@@ -731,6 +741,11 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57"/><polyline points="21 3 21 9 15 9"/></svg>
       Empréstimos
     </button>
+    <button class="nav-item" data-view="avaliacoes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.63 22 9.24 16.5 14.14 18.18 21 12 17.27 5.82 21 7.5 14.14 2 9.24 8.91 8.63"/></svg>
+      Avaliações
+      <span class="badge badge-critical hidden" id="navAvaliacoesBadge" style="margin-left:auto;"></span>
+    </button>
     <button class="nav-item" data-view="relatorios">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Relatórios
@@ -910,6 +925,30 @@
       <div class="modal-actions" style="justify-content:flex-start;">
         <button class="btn btn-danger" id="btnLimparEmprestimos">🗑️ Limpar todos os registros de empréstimos</button>
       </div>
+    </div>
+  </section>
+
+  <!-- ===================== AVALIACOES ===================== -->
+  <section class="view" id="view-avaliacoes">
+    <div class="topbar">
+      <div>
+        <h1>Avaliações</h1>
+        <p>Comentários e notas enviados pelos estudantes no catálogo público</p>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <select id="avaliacoesFilter">
+        <option value="pendente">Pendentes</option>
+        <option value="aprovado">Aprovadas</option>
+        <option value="rejeitado">Rejeitadas</option>
+        <option value="todos">Todas</option>
+      </select>
+      <input class="grow" type="text" id="avaliacoesSearch" placeholder="Buscar por livro ou estudante...">
+    </div>
+
+    <div class="card">
+      <div class="table-wrap"><table id="tableAvaliacoes" class="table-responsive"></table></div>
     </div>
   </section>
 
@@ -1247,6 +1286,10 @@
     </div>
     <div class="field">
       <label id="emprestimoAlunoLabel">Estudantes (somente ativos)</label>
+      <label class="aluno-item" id="emprestimoAlunoTodosWrap" style="display:none;">
+        <input type="checkbox" id="chkTodosAlunosEmprestimo">
+        <strong>Marcar todos os estudantes</strong>
+      </label>
       <div class="aluno-checklist" id="emprestimoAlunoChecklist"></div>
       <span class="field-hint" id="emprestimoAlunoHint"></span>
     </div>
@@ -1302,6 +1345,8 @@
         <label class="permissao-item"><input type="checkbox" id="permEmprestimosRegistrar"> Registrar novo empréstimo</label>
         <label class="permissao-item"><input type="checkbox" id="permEmprestimosGerenciar"> Devolver / editar / excluir empréstimos</label>
         <label class="permissao-item"><input type="checkbox" id="permRelatoriosVisualizar"> Visualizar relatórios</label>
+        <label class="permissao-item"><input type="checkbox" id="permAvaliacoesVisualizar"> Visualizar avaliações de livros</label>
+        <label class="permissao-item"><input type="checkbox" id="permAvaliacoesGerenciar"> Aprovar / rejeitar / excluir avaliações</label>
       </div>
     </div>
     <div class="field">
@@ -1373,7 +1418,7 @@ const STATUS_COLOR = {
 const SHELF_COLOR = ['var(--series-1)','var(--series-2)','var(--series-3)','var(--series-4)'];
 
 /* ================= ESTADO LOCAL (espelha o banco) ================= */
-const state = { books: [], users: [], loans: [], profiles: [] };
+const state = { books: [], users: [], loans: [], profiles: [], reviews: [] };
 let currentUser = null; // { id, nome, role, ativo, email }
 let currentView = 'dashboard';
 let livrosPage = 1;
@@ -1490,8 +1535,18 @@ async function loadProfiles() {
   if (error) { showToast(friendlyError(error)); return; }
   state.profiles = data || [];
 }
+async function loadReviews() {
+  if (!temPermissao('avaliacoesVisualizar')) { state.reviews = []; return; }
+  const { data, error } = await sb.from('reviews').select('*').order('created_at', { ascending: false });
+  if (error) { showToast(friendlyError(error)); return; }
+  state.reviews = (data || []).map(r => ({
+    id: r.id, bookId: r.book_id, userId: r.student_id, nota: r.nota, comentario: r.comentario,
+    status: r.status, alunoNomeExibicao: r.aluno_nome_exibicao, alunoTurma: r.aluno_turma,
+    createdAt: r.created_at, moderatedAt: r.moderated_at,
+  }));
+}
 async function loadAllData() {
-  await Promise.all([loadBooks(), loadUsers(), loadLoans(), loadProfiles()]);
+  await Promise.all([loadBooks(), loadUsers(), loadLoans(), loadProfiles(), loadReviews()]);
 }
 
 /* ================= AUTENTICAÇÃO ================= */
@@ -1546,6 +1601,7 @@ function updateNavForRole() {
   document.querySelector('.nav-item[data-view="alunos"]').style.display = temPermissao('estudantesVisualizar') ? '' : 'none';
   document.querySelector('.nav-item[data-view="livros"]').style.display = temPermissao('livrosVisualizar') ? '' : 'none';
   document.querySelector('.nav-item[data-view="relatorios"]').style.display = temPermissao('relatoriosVisualizar') ? '' : 'none';
+  document.querySelector('.nav-item[data-view="avaliacoes"]').style.display = temPermissao('avaliacoesVisualizar') ? '' : 'none';
   const escondeDashboard = !isAdmin && !temPermissao('estudantesVisualizar') && !temPermissao('relatoriosVisualizar') && !temPermissao('livrosGerenciar');
   document.querySelector('.nav-item[data-view="dashboard"]').style.display = escondeDashboard ? 'none' : '';
   document.querySelector('.nav-item[data-view="emprestimos"]').style.display = temPermissao('emprestimosVisualizar') ? '' : 'none';
@@ -1561,6 +1617,7 @@ function updateNavForRole() {
     if (currentView === 'alunos' && !temPermissao('estudantesVisualizar')) switchView(temPermissao('livrosVisualizar') ? 'livros' : 'dashboard');
     if (currentView === 'relatorios' && !temPermissao('relatoriosVisualizar')) switchView(temPermissao('livrosVisualizar') ? 'livros' : 'dashboard');
     if (currentView === 'emprestimos' && !temPermissao('emprestimosVisualizar')) switchView(temPermissao('livrosVisualizar') ? 'livros' : 'dashboard');
+    if (currentView === 'avaliacoes' && !temPermissao('avaliacoesVisualizar')) switchView(temPermissao('livrosVisualizar') ? 'livros' : 'dashboard');
     if (currentView === 'dashboard' && escondeDashboard) switchView('livros');
   }
 }
@@ -1656,6 +1713,7 @@ function switchView(view) {
   if (view === 'alunos' && !temPermissao('estudantesVisualizar')) return;
   if (view === 'relatorios' && !temPermissao('relatoriosVisualizar')) return;
   if (view === 'emprestimos' && !temPermissao('emprestimosVisualizar')) return;
+  if (view === 'avaliacoes' && !temPermissao('avaliacoesVisualizar')) return;
   if (view === 'dashboard' && currentUser && currentUser.role !== 'admin' && !temPermissao('estudantesVisualizar') && !temPermissao('relatoriosVisualizar') && !temPermissao('livrosGerenciar')) return;
   if (view === currentView) return;
   currentView = view;
@@ -2616,6 +2674,8 @@ function atualizarEstudantesPorTurma() {
   const turma = document.getElementById('emprestimoTurma').value;
   const wrap = document.getElementById('emprestimoAlunoChecklist');
   const hint = document.getElementById('emprestimoAlunoHint');
+  const todosWrap = document.getElementById('emprestimoAlunoTodosWrap');
+  const chkTodos = document.getElementById('chkTodosAlunosEmprestimo');
   const editId = document.getElementById('emprestimoEditId').value;
   const emEdicao = !!editId;
   const loanEmEdicao = emEdicao ? state.loans.find(l => l.id === Number(editId)) : null;
@@ -2623,6 +2683,7 @@ function atualizarEstudantesPorTurma() {
   if (!turma) {
     wrap.innerHTML = `<div class="aluno-checklist-empty">Selecione a turma primeiro...</div>`;
     hint.textContent = '';
+    todosWrap.style.display = 'none';
     return;
   }
   let alunos = state.users.filter(u => u.turma === turma && u.status === 'ativo');
@@ -2634,6 +2695,7 @@ function atualizarEstudantesPorTurma() {
   if (!alunos.length) {
     wrap.innerHTML = `<div class="aluno-checklist-empty">Nenhum estudante ativo nesta turma.</div>`;
     hint.textContent = '';
+    todosWrap.style.display = 'none';
     return;
   }
   alunos = alunos.slice().sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
@@ -2648,6 +2710,9 @@ function atualizarEstudantesPorTurma() {
       ? `${alunosSelecionadosEmprestimo.size} estudantes selecionados — será registrado um empréstimo para cada um.`
       : '';
   };
+  const atualizarChkTodos = () => {
+    chkTodos.checked = alunos.every(u => alunosSelecionadosEmprestimo.has(u.id));
+  };
   wrap.querySelectorAll('input').forEach(inp => {
     inp.addEventListener('change', () => {
       const id = Number(inp.value);
@@ -2655,8 +2720,20 @@ function atualizarEstudantesPorTurma() {
       else if (inp.checked) alunosSelecionadosEmprestimo.add(id);
       else alunosSelecionadosEmprestimo.delete(id);
       atualizarHint();
+      if (!emEdicao) atualizarChkTodos();
     });
   });
+  if (emEdicao) {
+    todosWrap.style.display = 'none';
+  } else {
+    todosWrap.style.display = '';
+    chkTodos.onchange = () => {
+      if (chkTodos.checked) alunos.forEach(u => alunosSelecionadosEmprestimo.add(u.id));
+      else alunos.forEach(u => alunosSelecionadosEmprestimo.delete(u.id));
+      atualizarEstudantesPorTurma();
+    };
+    atualizarChkTodos();
+  }
   atualizarHint();
 }
 document.getElementById('emprestimoTurma').addEventListener('change', () => {
@@ -2794,6 +2871,107 @@ document.getElementById('btnSalvarEmprestimo').addEventListener('click', async (
   setLoading(false);
 });
 
+/* ================= AVALIAÇÕES (moderação de estrelas e comentários) ================= */
+function fmtDataHora(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR');
+}
+function starsMiniHtml(nota) {
+  let svgs = '';
+  for (let i = 1; i <= 5; i++) {
+    const cls = i <= nota ? 'star-fill' : 'star-empty';
+    svgs += `<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linejoin="round" class="${cls}"><polygon points="12 2 15.09 8.63 22 9.24 16.5 14.14 18.18 21 12 17.27 5.82 21 7.5 14.14 2 9.24 8.91 8.63"/></svg>`;
+  }
+  return `<span class="stars-mini">${svgs}</span>`;
+}
+function statusAvaliacaoBadgeHtml(status) {
+  if (status === 'aprovado') return '<span class="badge badge-good">Aprovada</span>';
+  if (status === 'rejeitado') return '<span class="badge badge-critical">Rejeitada</span>';
+  return '<span class="badge badge-warning">Pendente</span>';
+}
+function filteredReviews() {
+  const filtro = document.getElementById('avaliacoesFilter').value;
+  const q = document.getElementById('avaliacoesSearch').value.trim().toLowerCase();
+  return state.reviews.filter(r => {
+    if (filtro !== 'todos' && r.status !== filtro) return false;
+    if (!q) return true;
+    const b = bookById(r.bookId);
+    const titulo = (b ? b.titulo : '').toLowerCase();
+    const nomeCompleto = (userById(r.userId) || {}).nome || r.alunoNomeExibicao || '';
+    return titulo.includes(q) || nomeCompleto.toLowerCase().includes(q);
+  });
+}
+function atualizarBadgeAvaliacoesPendentes() {
+  const badge = document.getElementById('navAvaliacoesBadge');
+  if (!badge) return;
+  const pendentes = state.reviews.filter(r => r.status === 'pendente').length;
+  badge.textContent = pendentes;
+  badge.classList.toggle('hidden', pendentes === 0);
+}
+function renderAvaliacoes() {
+  if (!temPermissao('avaliacoesVisualizar')) return;
+  atualizarBadgeAvaliacoesPendentes();
+  const list = filteredReviews();
+  const tbl = document.getElementById('tableAvaliacoes');
+  if (!list.length) {
+    tbl.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhuma avaliação encontrada.</td></tr></tbody>`;
+    return;
+  }
+  const podeGerenciar = temPermissao('avaliacoesGerenciar');
+  tbl.innerHTML = `
+    <thead><tr><th>Livro</th><th>Estudante</th><th>Nota</th><th>Comentário</th><th>Status</th><th>Data</th><th></th></tr></thead>
+    <tbody>${list.map(r => {
+      const b = bookById(r.bookId);
+      const u = userById(r.userId);
+      const nomeEstudante = u ? `${escapeHtml(u.nome)} <span class="field-hint">(${escapeHtml(u.turma || '')})</span>` : `${escapeHtml(r.alunoNomeExibicao)}${r.alunoTurma ? ' <span class="field-hint">(' + escapeHtml(r.alunoTurma) + ')</span>' : ''}`;
+      const acoes = !podeGerenciar ? '' : `
+          ${r.status !== 'aprovado' ? `<button class="btn btn-sm" onclick="moderarAvaliacao(${r.id},'aprovado')">Aprovar</button>` : ''}
+          ${r.status !== 'rejeitado' ? `<button class="btn btn-sm" onclick="moderarAvaliacao(${r.id},'rejeitado')">Rejeitar</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="confirmarExcluirAvaliacao(${r.id})">Excluir</button>`;
+      return `<tr>
+        <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
+        <td data-label="Estudante">${nomeEstudante}</td>
+        <td data-label="Nota">${starsMiniHtml(r.nota)}</td>
+        <td data-label="Comentário"><div class="avaliacao-comentario${r.comentario ? '' : ' vazio'}">${r.comentario ? escapeHtml(r.comentario) : 'Sem comentário'}</div></td>
+        <td data-label="Status">${statusAvaliacaoBadgeHtml(r.status)}</td>
+        <td data-label="Data">${fmtDataHora(r.createdAt)}</td>
+        <td class="actions-cell">${acoes}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+}
+['avaliacoesFilter','avaliacoesSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderAvaliacoes));
+
+async function moderarAvaliacao(id, novoStatus) {
+  setLoading(true);
+  const { error } = await sb.from('reviews').update({ status: novoStatus, moderated_at: new Date().toISOString() }).eq('id', id);
+  setLoading(false);
+  if (error) { showToast(friendlyError(error)); return; }
+  showToast(novoStatus === 'aprovado' ? 'Avaliação aprovada — já aparece no catálogo público.' : 'Avaliação rejeitada.');
+  await loadReviews();
+  renderAvaliacoes();
+}
+function confirmarExcluirAvaliacao(id) {
+  const r = state.reviews.find(x => x.id === id);
+  if (!r) return;
+  const b = bookById(r.bookId);
+  askConfirm(
+    '⚠️ Atenção: excluir avaliação',
+    `Isso vai apagar definitivamente a avaliação de "${b ? b.titulo : 'livro removido'}" enviada por ${r.alunoNomeExibicao}. Essa ação não pode ser desfeita. Deseja continuar?`,
+    () => excluirAvaliacao(id)
+  );
+}
+async function excluirAvaliacao(id) {
+  setLoading(true);
+  const { error } = await sb.from('reviews').delete().eq('id', id);
+  setLoading(false);
+  if (error) { showToast(friendlyError(error)); return; }
+  showToast('Avaliação excluída.');
+  await loadReviews();
+  renderAvaliacoes();
+}
+
 /* ================= EXPORTAR DADOS (conveniência / relatório) ================= */
 document.getElementById('btnExport').addEventListener('click', () => {
   const payload = {
@@ -2833,11 +3011,11 @@ function renderContas() {
         </td>
       </tr>`).join('')}</tbody>`;
 }
-const PERMISSAO_KEYS = ['livrosVisualizar','livrosGerenciar','estudantesVisualizar','estudantesGerenciar','emprestimosVisualizar','emprestimosRegistrar','emprestimosGerenciar','relatoriosVisualizar'];
+const PERMISSAO_KEYS = ['livrosVisualizar','livrosGerenciar','estudantesVisualizar','estudantesGerenciar','emprestimosVisualizar','emprestimosRegistrar','emprestimosGerenciar','relatoriosVisualizar','avaliacoesVisualizar','avaliacoesGerenciar'];
 const PERMISSOES_PRESETS = {
-  padrao: { livrosVisualizar:true, livrosGerenciar:true, estudantesVisualizar:true, estudantesGerenciar:true, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:true, relatoriosVisualizar:true },
-  coordenacao: { livrosVisualizar:true, livrosGerenciar:true, estudantesVisualizar:true, estudantesGerenciar:true, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:true, relatoriosVisualizar:true },
-  professor: { livrosVisualizar:true, livrosGerenciar:false, estudantesVisualizar:false, estudantesGerenciar:false, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:false, relatoriosVisualizar:false },
+  padrao: { livrosVisualizar:true, livrosGerenciar:true, estudantesVisualizar:true, estudantesGerenciar:true, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:true, relatoriosVisualizar:true, avaliacoesVisualizar:true, avaliacoesGerenciar:true },
+  coordenacao: { livrosVisualizar:true, livrosGerenciar:true, estudantesVisualizar:true, estudantesGerenciar:true, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:true, relatoriosVisualizar:true, avaliacoesVisualizar:true, avaliacoesGerenciar:true },
+  professor: { livrosVisualizar:true, livrosGerenciar:false, estudantesVisualizar:false, estudantesGerenciar:false, emprestimosVisualizar:true, emprestimosRegistrar:true, emprestimosGerenciar:false, relatoriosVisualizar:false, avaliacoesVisualizar:false, avaliacoesGerenciar:false },
 };
 function permKeyToId(key) { return 'perm' + key.charAt(0).toUpperCase() + key.slice(1); }
 function aplicarPermissoesNosCheckboxes(perms) {
@@ -2860,6 +3038,7 @@ function permissoesParaColuna(perms) {
     estudantes_visualizar: !!perms.estudantesVisualizar, estudantes_gerenciar: !!perms.estudantesGerenciar,
     emprestimos_visualizar: !!perms.emprestimosVisualizar, emprestimos_registrar: !!perms.emprestimosRegistrar,
     emprestimos_gerenciar: !!perms.emprestimosGerenciar, relatorios_visualizar: !!perms.relatoriosVisualizar,
+    avaliacoes_visualizar: !!perms.avaliacoesVisualizar, avaliacoes_gerenciar: !!perms.avaliacoesGerenciar,
   };
 }
 function colunaParaPermissoes(col) {
@@ -2869,6 +3048,7 @@ function colunaParaPermissoes(col) {
     estudantesVisualizar: !!col.estudantes_visualizar, estudantesGerenciar: !!col.estudantes_gerenciar,
     emprestimosVisualizar: !!col.emprestimos_visualizar, emprestimosRegistrar: !!col.emprestimos_registrar,
     emprestimosGerenciar: !!col.emprestimos_gerenciar, relatoriosVisualizar: !!col.relatorios_visualizar,
+    avaliacoesVisualizar: !!col.avaliacoes_visualizar, avaliacoesGerenciar: !!col.avaliacoes_gerenciar,
   };
 }
 function permsIguaisPreset(perms, preset) {
@@ -2994,6 +3174,7 @@ function renderAll() {
   renderLivros();
   renderAlunos();
   renderEmprestimos();
+  renderAvaliacoes();
   renderRelatorios();
   renderContas();
 }
