@@ -981,6 +981,19 @@
         <div id="chartRelatorioTurma"></div>
       </div>
     </div>
+
+    <div class="row">
+      <div class="card">
+        <h3>Funcionários que mais registraram empréstimos</h3>
+        <p class="sub">Ranking por total de empréstimos registrados no painel</p>
+        <div class="table-wrap"><table id="tableRelatorioFuncionarios" class="table-responsive"></table></div>
+      </div>
+      <div class="card">
+        <h3>Estudantes que mais comentaram</h3>
+        <p class="sub">Ranking por avaliações aprovadas no catálogo</p>
+        <div class="table-wrap"><table id="tableRelatorioComentarios" class="table-responsive"></table></div>
+      </div>
+    </div>
   </section>
 
   <!-- ===================== ADMINISTRAÇÃO ===================== -->
@@ -1432,7 +1445,7 @@ const STATUS_COLOR = {
 const SHELF_COLOR = ['var(--series-1)','var(--series-2)','var(--series-3)','var(--series-4)'];
 
 /* ================= ESTADO LOCAL (espelha o banco) ================= */
-const state = { books: [], users: [], loans: [], profiles: [], reviews: [] };
+const state = { books: [], users: [], loans: [], profiles: [], reviews: [], staffNomes: {} };
 let currentUser = null; // { id, nome, role, ativo, email }
 let currentView = 'dashboard';
 let livrosPage = 1;
@@ -1540,9 +1553,17 @@ async function loadLoans() {
   if (error) { showToast(friendlyError(error)); return; }
   state.loans = (data || []).map(r => ({
     id: r.id, bookId: r.book_id, userId: r.student_id,
-    dataEmprestimo: r.data_emprestimo, dataPrevista: r.data_prevista, dataDevolucao: r.data_devolucao
+    dataEmprestimo: r.data_emprestimo, dataPrevista: r.data_prevista, dataDevolucao: r.data_devolucao,
+    registradoPor: r.registrado_por, criadoEm: r.created_at
   }));
 }
+async function loadStaffNomes() {
+  const { data, error } = await sb.rpc('staff_nomes');
+  if (error) { state.staffNomes = {}; return; }
+  state.staffNomes = {};
+  (data || []).forEach(p => { state.staffNomes[p.id] = p.nome; });
+}
+function staffNomeById(id) { return id ? (state.staffNomes[id] || 'Conta removida') : null; }
 async function loadProfiles() {
   if (!currentUser || currentUser.role !== 'admin') { state.profiles = []; return; }
   const { data, error } = await sb.from('profiles').select('*').order('nome');
@@ -1560,7 +1581,7 @@ async function loadReviews() {
   }));
 }
 async function loadAllData() {
-  await Promise.all([loadBooks(), loadUsers(), loadLoans(), loadProfiles(), loadReviews()]);
+  await Promise.all([loadBooks(), loadUsers(), loadLoans(), loadProfiles(), loadReviews(), loadStaffNomes()]);
 }
 
 /* ================= AUTENTICAÇÃO ================= */
@@ -1957,6 +1978,59 @@ function renderRelatorios() {
           <td data-label="Turma">${escapeHtml(x.user.turma || '—')}</td>
           <td data-label="Ativos">${x.ativos}</td>
           <td data-label="Total">${x.total}</td>
+        </tr>`).join('')}</tbody>`;
+  }
+
+  /* --- funcionários que mais registraram empréstimos --- */
+  const contagemPorFuncionario = {};
+  state.loans.forEach(l => {
+    if (!l.registradoPor) return;
+    contagemPorFuncionario[l.registradoPor] = (contagemPorFuncionario[l.registradoPor] || 0) + 1;
+  });
+  const porFuncionario = Object.keys(contagemPorFuncionario)
+    .map(id => ({ id, nome: staffNomeById(id), total: contagemPorFuncionario[id] }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
+
+  const tblFuncionarios = document.getElementById('tableRelatorioFuncionarios');
+  if (!porFuncionario.length) {
+    tblFuncionarios.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhum empréstimo com registro de funcionário ainda.</td></tr></tbody>`;
+  } else {
+    tblFuncionarios.innerHTML = `
+      <thead><tr><th>Funcionário</th><th>Empréstimos registrados</th></tr></thead>
+      <tbody>${porFuncionario.map(x => `
+        <tr>
+          <td data-label="Funcionário">${escapeHtml(x.nome)}</td>
+          <td data-label="Empréstimos registrados">${x.total}</td>
+        </tr>`).join('')}</tbody>`;
+  }
+
+  /* --- estudantes que mais comentaram (avaliações aprovadas) --- */
+  const contagemComentarios = {};
+  state.reviews.filter(r => r.status === 'aprovado').forEach(r => {
+    contagemComentarios[r.userId] = (contagemComentarios[r.userId] || 0) + 1;
+  });
+  const porComentario = Object.keys(contagemComentarios)
+    .map(id => {
+      const u = userById(id);
+      return { id, nome: u ? u.nome : 'Estudante removido', turma: u ? u.turma : '—', total: contagemComentarios[id] };
+    })
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
+
+  const tblComentarios = document.getElementById('tableRelatorioComentarios');
+  if (!temPermissao('avaliacoesVisualizar')) {
+    tblComentarios.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Sem permissão para ver avaliações.</td></tr></tbody>`;
+  } else if (!porComentario.length) {
+    tblComentarios.innerHTML = `<tbody><tr class="empty-row"><td class="empty-state">Nenhuma avaliação aprovada ainda.</td></tr></tbody>`;
+  } else {
+    tblComentarios.innerHTML = `
+      <thead><tr><th>Estudante</th><th>Turma</th><th>Comentários</th></tr></thead>
+      <tbody>${porComentario.map(x => `
+        <tr>
+          <td data-label="Estudante">${escapeHtml(x.nome)}</td>
+          <td data-label="Turma">${escapeHtml(x.turma || '—')}</td>
+          <td data-label="Comentários">${x.total}</td>
         </tr>`).join('')}</tbody>`;
   }
 
@@ -2550,7 +2624,7 @@ function renderEmprestimos() {
   }
   const podeGerenciar = temPermissao('emprestimosGerenciar');
   tbl.innerHTML = `
-    <thead><tr>${podeGerenciar ? '<th style="width:32px;"><input type="checkbox" id="chkSelecionarTodosEmprestimos"></th>' : ''}<th>Livro</th><th>Localização</th><th>Estudante</th><th>Empréstimo</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
+    <thead><tr>${podeGerenciar ? '<th style="width:32px;"><input type="checkbox" id="chkSelecionarTodosEmprestimos"></th>' : ''}<th>Livro</th><th>Localização</th><th>Estudante</th><th>Empréstimo</th><th>Previsão</th><th>Registrado por</th><th>Status</th><th></th></tr></thead>
     <tbody>${list.map(l => {
       const b = bookById(l.bookId), u = userById(l.userId);
       const status = loanStatus(l);
@@ -2559,6 +2633,10 @@ function renderEmprestimos() {
       else if (status === 'atrasado') badge = `<span class="badge badge-critical">Atrasado (${daysBetween(l.dataPrevista, todayISO())}d)</span>`;
       else badge = `<span class="badge badge-muted">Ativo</span>`;
       const localizacao = b ? `Estante ${b.estante}${b.prateleira ? ' · Prat. ' + b.prateleira : ''}` : '—';
+      const registradoPorNome = l.registradoPor ? staffNomeById(l.registradoPor) : 'Não registrado';
+      const registradoInfo = l.registradoPor
+        ? `${escapeHtml(registradoPorNome)}<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${fmtCarimbo(l.criadoEm)}</div>`
+        : `<span style="color:var(--text-muted);">—</span>`;
       return `<tr>
         ${podeGerenciar ? `<td data-label=""><input type="checkbox" class="chkEmprestimo" value="${l.id}" ${emprestimosSelecionados.has(l.id) ? 'checked' : ''}></td>` : ''}
         <td data-label="Livro">${escapeHtml(b ? b.titulo : 'Livro removido')}</td>
@@ -2566,6 +2644,7 @@ function renderEmprestimos() {
         <td data-label="Estudante">${escapeHtml(u ? u.nome : 'Estudante removido')}</td>
         <td data-label="Empréstimo">${fmtDate(l.dataEmprestimo)}</td>
         <td data-label="Previsão">${fmtDate(l.dataPrevista)}</td>
+        <td data-label="Registrado por">${registradoInfo}</td>
         <td data-label="Status">${badge}</td>
         <td class="actions-cell">
           ${!podeGerenciar ? '' :
@@ -2879,7 +2958,8 @@ document.getElementById('btnSalvarEmprestimo').addEventListener('click', async (
   setLoading(true);
   const registros = alunoIds.map(userId => ({
     book_id: bookId, student_id: userId,
-    data_emprestimo: data, data_prevista: addDaysISO(data, prazo), data_devolucao: null
+    data_emprestimo: data, data_prevista: addDaysISO(data, prazo), data_devolucao: null,
+    registrado_por: currentUser ? currentUser.id : null
   }));
   const { error: e1 } = await sb.from('loans').insert(registros);
   if (e1) { setLoading(false); showToast(friendlyError(e1)); return; }
@@ -2894,6 +2974,12 @@ document.getElementById('btnSalvarEmprestimo').addEventListener('click', async (
   setLoading(false);
 });
 
+function fmtCarimbo(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
 /* ================= AVALIAÇÕES (moderação de estrelas e comentários) ================= */
 function fmtDataHora(iso) {
   if (!iso) return '—';
