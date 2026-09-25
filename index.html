@@ -1375,6 +1375,20 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="modalBoasVindas">
+  <div class="modal confirm-box" style="max-width:420px;">
+    <h3>Conta criada com sucesso 🎉</h3>
+    <p>Você já está com acesso liberado ao painel da Biblioteca Maria Carolina de Jesus neste mesmo endereço — não existe um app separado para baixar de loja de aplicativos, é este site mesmo.</p>
+    <p style="margin-top:10px;">Para deixar com "cara" de aplicativo no celular (ícone na tela inicial, sem barra do navegador):</p>
+    <p style="margin-top:8px;"><strong>Android (Chrome):</strong> toque no menu ⋮ e escolha "Instalar aplicativo" ou "Adicionar à tela inicial".</p>
+    <p style="margin-top:6px;"><strong>iPhone (Safari):</strong> toque no ícone de compartilhar e escolha "Adicionar à Tela de Início".</p>
+    <p style="margin-top:10px; font-size:12.5px; color: var(--text-secondary); word-break: break-all;">Endereço do painel: https://liviocharlles-tech.github.io/biblioteca-escolar/</p>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeModal('modalBoasVindas')">Entendi</button>
+    </div>
+  </div>
+</div>
+
 </div> <!-- /#appRoot -->
 
 <div class="toast" id="toast"></div>
@@ -1671,6 +1685,7 @@ document.getElementById('linkEsqueciSenha').addEventListener('click', async (e) 
 });
 
 let pendingRecoverySession = null;
+let veioDeConvite = false;
 document.getElementById('btnSetPassword').addEventListener('click', async () => {
   const p1 = document.getElementById('setPasswordInput').value;
   const p2 = document.getElementById('setPasswordConfirm').value;
@@ -1685,8 +1700,12 @@ document.getElementById('btnSetPassword').addEventListener('click', async () => 
     return;
   }
   const { data: { session } } = await sb.auth.getSession();
-  if (session) await enterAppWithSession(session);
-  else showLoginScreen();
+  if (session) {
+    await enterAppWithSession(session);
+    if (veioDeConvite) openModal('modalBoasVindas');
+  } else {
+    showLoginScreen();
+  }
 });
 
 /* ---------------- navigation ---------------- */
@@ -3189,6 +3208,7 @@ async function init() {
   const searchParams = new URLSearchParams(window.location.search);
   const linkType = hashParams.get('type') || searchParams.get('type');
   const isRecoveryOrInvite = linkType === 'invite' || linkType === 'recovery';
+  veioDeConvite = linkType === 'invite';
   const linkError = hashParams.get('error_description') || hashParams.get('error') ||
                      searchParams.get('error_description') || searchParams.get('error');
 
